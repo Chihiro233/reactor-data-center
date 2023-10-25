@@ -14,6 +14,7 @@ import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
@@ -58,18 +59,23 @@ public class TemplateServiceImpl implements TemplateService {
         Mono<TemplateTaskDO> taskMono = templateTaskRepository.findOne(example);
         // 组合两个操作，最后打印出调用的数据
         Mono.zip(temMono, taskMono)
+                //.subscribeOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .flatMapMany(tuple -> {
                     TemplateDO templateDO = tuple.getT1();
                     TemplateTaskDO taskDO = tuple.getT2();
                     log.info("当前线程名称:{}",Thread.currentThread().getName());
-                    Flux<Map<String, Object>> excelFile = fileService.getExcelFile(taskDO.getFileUrl());
+                    Flux<Map<String, Object>> excelFile = fileService.getExcelFile(taskDO.getFileUrl(), FileStoreType.LOCAL);
 
                     return excelFile.flatMap(rowData ->
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
                                     JSON.toJSONString(rowData), String.class));
-                })
-                .subscribeOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                }).log()
+                //.publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                //.doOnNext((x)->{
+                //    log.info("当前数据:{}",x);
+                //})
                 .subscribe(response -> {
+                    // 可不可以配置groovy脚本呢
                     log.info("当前线程名称nmsl:{}",Thread.currentThread().getName());
                     log.info("测试回复的数据:{}", response);
                 });

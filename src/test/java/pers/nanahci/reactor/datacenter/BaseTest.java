@@ -21,7 +21,7 @@ public class BaseTest {
     @SneakyThrows
     public void testReactor(){
         templateService.execute(1L,"b2310240001");
-        Thread.sleep(3000L);
+        Thread.sleep(13000L);
     }
 
 }
