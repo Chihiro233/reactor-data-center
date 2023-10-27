@@ -29,9 +29,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 @Slf4j
@@ -58,26 +60,38 @@ public class TemplateServiceImpl implements TemplateService {
         Example<TemplateTaskDO> example = Example.of(templateTaskDO, exampleMatcher);
         Mono<TemplateTaskDO> taskMono = templateTaskRepository.findOne(example);
         // 组合两个操作，最后打印出调用的数据
+        final AtomicReference<TemplateModel> ref = new AtomicReference<>();
         Mono.zip(temMono, taskMono)
                 //.subscribeOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .flatMapMany(tuple -> {
                     TemplateDO templateDO = tuple.getT1();
                     TemplateTaskDO taskDO = tuple.getT2();
-                    log.info("当前线程名称:{}",Thread.currentThread().getName());
+                    TemplateModel model = TemplateModel.builder()
+                            .taskList(List.of(taskDO))
+                            .templateDO(templateDO).build();
+                    ref.set(model);
+
+                    log.info("当前线程名称:{}", Thread.currentThread().getName());
                     Flux<Map<String, Object>> excelFile = fileService.getExcelFile(taskDO.getFileUrl(), FileStoreType.LOCAL);
 
                     return excelFile.flatMap(rowData ->
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
                                     JSON.toJSONString(rowData), String.class));
-                }).log()
-                //.publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
-                //.doOnNext((x)->{
-                //    log.info("当前数据:{}",x);
-                //})
+                })
+                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(response -> {
                     // 可不可以配置groovy脚本呢
-                    log.info("当前线程名称nmsl:{}",Thread.currentThread().getName());
-                    log.info("测试回复的数据:{}", response);
+                    TemplateModel templateModel = ref.get();
+                    afterTaskComplete(templateModel);
+
                 });
+    }
+
+    private void afterTaskComplete(TemplateModel model) {
+        TemplateDO templateDO = model.getTemplateDO();
+        List<TemplateTaskDO> taskList = model.getTaskList();
+        for (TemplateTaskDO taskDO : taskList) {
+
+        }
     }
 }

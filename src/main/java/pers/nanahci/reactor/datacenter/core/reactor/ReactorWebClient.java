@@ -42,6 +42,10 @@ public class ReactorWebClient {
                 .bodyToMono(respType);
     }
 
+    public <T> Mono<T> post(String uri, String body, Class<T> respType) {
+        return post(null,uri,body,respType);
+    }
+
     private WebClient getClient(String serverName) {
         return StringUtils.isBlank(serverName) ? directWebClient : webClient;
     }

@@ -1,41 +1,34 @@
 package pers.nanahci.reactor.datacenter.domain.template;
 
+import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
+import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.util.SpringContextUtil;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Slf4j
 @Data
+@Builder
 public class TemplateModel {
 
 
-    private final ReactorWebClient reactorWebClient;
 
     private TemplateDO templateDO;
 
+    private List<TemplateTaskDO> taskList;
 
-    public TemplateModel(TemplateDO templateDO) {
-        this.reactorWebClient = SpringContextUtil.getBean(ReactorWebClient.class);
+
+    public TemplateModel(TemplateDO templateDO,List<TemplateTaskDO> taskList) {
         this.templateDO = templateDO;
+        this.taskList = taskList;
     }
 
 
-    /**
-     * 请求对象url，返回对应的值容器
-     * @param body
-     * @param respType
-     * @return
-     * @param <T>
-     */
-    public <T> Mono<T> post(String body, Class<T> respType) {
-        String serverName = templateDO.getServerName();
-        String uri = templateDO.getUri();
-        return reactorWebClient.post(serverName, uri, body, respType);
-
-    }
 
 }

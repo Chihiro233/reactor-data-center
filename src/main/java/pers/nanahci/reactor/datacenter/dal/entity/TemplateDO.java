@@ -2,7 +2,9 @@ package pers.nanahci.reactor.datacenter.dal.entity;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.relational.core.mapping.Table;
+import pers.nanahci.reactor.datacenter.dal.entity.convert.ConfigConverter;
 
 
 @Data
@@ -20,12 +22,25 @@ public class TemplateDO {
 
     private Integer rpcType;
 
-    private String extendInfo;
+    @ValueConverter(ConfigConverter.class)
+    private Config config;
 
-    private Integer callbackFlag;
 
-    private String callbackServerName;
+    @Data
+    public static class Config {
 
-    private String callbackUri;
+        private String webHook;
+
+        private String userId;
+
+        private String phone;
+
+        private String token;
+
+        private Integer type;
+
+
+    }
+
 
 }
