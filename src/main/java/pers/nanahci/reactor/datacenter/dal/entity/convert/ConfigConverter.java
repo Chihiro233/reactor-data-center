@@ -1,8 +1,10 @@
 package pers.nanahci.reactor.datacenter.dal.entity.convert;
 
 import com.alibaba.fastjson2.JSON;
+import lombok.Data;
 import org.springframework.data.convert.PropertyValueConverter;
 import org.springframework.data.convert.ValueConversionContext;
+import org.springframework.stereotype.Component;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 
 public class ConfigConverter implements PropertyValueConverter {
