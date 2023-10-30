@@ -32,7 +32,6 @@ public class ReactorWebClient {
 
     public <T> Mono<T> post(String serverName, String uri, String body, Class<T> respType) {
         WebClient client = getClient(serverName);
-
         return client.post()
                 .uri(buildUrl(serverName, uri))
                 //.headers(httpHeaders -> WebFrameworkUtils.setTenantIdHeader(tenantId, httpHeaders)) // 设置租户的 Header

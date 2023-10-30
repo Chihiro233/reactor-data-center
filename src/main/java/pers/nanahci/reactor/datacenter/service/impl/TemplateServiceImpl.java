@@ -121,10 +121,8 @@ public class TemplateServiceImpl implements TemplateService {
             bindings.put("config", config);
             bindings.put("task", taskDO);
             String script = StringEscapeUtils.unescapeJava(config.getScript());
-            //scriptEngine
             CommonWebHookDTO dto = (CommonWebHookDTO) scriptEngine.eval(script, bindings);
-            //CommonWebHookDTO dto = (CommonWebHookDTO) groovyShell.run(config.getScript(), templateDO.getBatchNo(),
-            //        Lists.newArrayList(templateDO.getConfig(),JSON.toJSONString(taskDO)));
+
             webHookHandler.execute(dto).block();
         }
     }

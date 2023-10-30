@@ -1,5 +1,6 @@
 package pers.nanahci.reactor.datacenter.intergration.webhook.param.lark;
 
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
@@ -11,15 +12,16 @@ import java.time.Instant;
 
 @NoArgsConstructor
 @Slf4j
+@Data
 public abstract class AbstractLarkMessage {
 
-    private String timestamp;
+    protected String timestamp;
 
-    private String sign;
+    protected String sign;
 
-    String msg_type;
+    protected String msg_type;
 
-    String content;
+    protected String content;
 
     AbstractLarkMessage(String content) {
         this.content = content;

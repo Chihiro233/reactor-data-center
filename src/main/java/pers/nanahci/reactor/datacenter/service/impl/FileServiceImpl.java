@@ -26,47 +26,47 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public Flux<Map<String, Object>> getExcelFile(String fileUrl, FileStoreType type) {
-        return Flux.create(sink->{
-            HashMap<String, Object> map = new HashMap<>();
-            map.put("key","sdsd");
-            sink.next(map);
-            sink.complete();
-        });
-        // 从oss上拉取文件
-        //return Flux.generate(sink -> {
-        //    FileClient fileClient = FileClientFactory.get(type);
-        //    InputStream ins = fileClient.getInputStream(fileUrl);
-        //    EasyExcel.read(ins, new AnalysisEventListener<Map<Integer, Object>>() {
-//
-        //        private Map<Integer, String> head;
-//
-        //        @Override
-        //        public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
-        //            head = ConverterUtils.convertToStringMap(headMap, context);
-        //        }
-//
-        //        @Override
-        //        public void invoke(Map<Integer, Object> data, AnalysisContext context) {
-//
-        //            Map<String, Object> convertData = new HashMap<>();
-        //            data.forEach((index, content) -> {
-        //                String key = head.get(index);
-//
-        //                convertData.put(key, content);
-        //            });
-        //            log.info("解析行:{}",context.readRowHolder().getRowIndex());
-        //            sink.next(convertData);
-        //        }
-//
-        //        @Override
-        //        public void doAfterAllAnalysed(AnalysisContext context) {
-        //            log.info("file read complete");
-        //            sink.complete();
-        //        }
-        //    }).doReadAll();
-//
-//
+        //return Flux.create(sink->{
+        //    HashMap<String, Object> map = new HashMap<>();
+        //    map.put("key","sdsd");
+        //    sink.next(map);
+        //    sink.complete();
         //});
+        // 从oss上拉取文件
+        return Flux.create(sink -> {
+            FileClient fileClient = FileClientFactory.get(type);
+            InputStream ins = fileClient.getInputStream(fileUrl);
+            EasyExcel.read(ins, new AnalysisEventListener<Map<Integer, Object>>() {
+//
+                private Map<Integer, String> head;
+//
+                @Override
+                public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
+                    head = ConverterUtils.convertToStringMap(headMap, context);
+                }
+//
+                @Override
+                public void invoke(Map<Integer, Object> data, AnalysisContext context) {
+//
+                    Map<String, Object> convertData = new HashMap<>();
+                    data.forEach((index, content) -> {
+                        String key = head.get(index);
+//
+                        convertData.put(key, content);
+                    });
+                    log.info("解析行:{}",context.readRowHolder().getRowIndex());
+                    sink.next(convertData);
+                }
+//
+                @Override
+                public void doAfterAllAnalysed(AnalysisContext context) {
+                    log.info("file read complete");
+                    sink.complete();
+                }
+            }).doReadAll();
+//
+//
+        });
 
     }
 

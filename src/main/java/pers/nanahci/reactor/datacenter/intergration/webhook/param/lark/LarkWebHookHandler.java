@@ -25,8 +25,9 @@ public class LarkWebHookHandler extends AbstractWebHookHandler {
         if (!(platformMsg instanceof AbstractLarkMessage larkMessage)) {
             return Mono.error(new RuntimeException("message type isn't lark!"));
         }
+        larkMessage.sign(identifyToken.getSecret());
         return reactorWebClient.post(webhookUrl + identifyToken.getId(),
-                JSON.toJSONString(larkMessage.sign(identifyToken.getSecret())),
+                JSON.toJSONString(larkMessage),
                 String.class);
     }
 
