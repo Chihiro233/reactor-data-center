@@ -12,4 +12,7 @@ public interface ExecutorConstant {
             new ThreadPoolExecutor(100, 120, 20,
                     TimeUnit.SECONDS, new ArrayBlockingQueue<>(100), (t) -> new Thread(t, "reactor-subscribe-thread"));
 
+    //Executor WORK_EXECUTOR =
+           // new ThreadPoolExecutor(100,120,);
+
 }

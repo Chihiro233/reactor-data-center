@@ -23,7 +23,6 @@ public class TemplateDO {
     private String uri;
 
     private Integer rpcType;
-
     /**
      * 请求方式（1-GET，2-POST）
      */
@@ -33,7 +32,6 @@ public class TemplateDO {
      * 执行方式（1-逐行调用，2-批量调用）
      */
     private Integer executeType;
-
     /**
      * 是否需要执行文件（0-否，1-是）
      */
@@ -58,6 +56,8 @@ public class TemplateDO {
         private String script;
 
         private Integer scriptType;
+
+        private String headList;
 
 
     }

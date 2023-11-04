@@ -42,4 +42,6 @@ public class TemplateTaskDO {
      */
     private String bizInfo;
 
+    private Integer status;
+
 }

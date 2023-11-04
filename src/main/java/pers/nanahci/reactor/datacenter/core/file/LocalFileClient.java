@@ -1,11 +1,14 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
+import io.netty.channel.DefaultFileRegion;
+import io.netty.channel.FileRegion;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.channels.FileChannel;
 
 @Component
 @Slf4j
@@ -33,6 +36,21 @@ public class LocalFileClient extends AbstractFileClient {
             throw new RuntimeException("file read exception", e);
         }
     }
+
+    @Override
+    public void upload(byte[] data, long position, String url) {
+        try {
+            File file = new File(url);
+            FileUtils.writeByteArrayToFile(file, data, true);
+            //try (FileOutputStream fio = new FileOutputStream(file)){
+            //    fio.write(data);
+            //    fio.flush();
+            //}
+        } catch (Exception e) {
+            log.error("file upload failed", e);
+        }
+    }
+
 
     @Override
     public FileStoreType type() {
