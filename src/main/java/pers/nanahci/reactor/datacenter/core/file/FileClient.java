@@ -11,6 +11,8 @@ public interface FileClient {
 
     void upload(byte[] data, long position, String url);
 
+    void upload(InputStream ins, String url);
+
     byte[] get(String url);
 
     FileStoreType type();

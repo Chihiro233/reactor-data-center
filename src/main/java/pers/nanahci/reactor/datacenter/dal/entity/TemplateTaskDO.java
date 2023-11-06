@@ -23,16 +23,6 @@ public class TemplateTaskDO {
      */
     private String fileUrl;
 
-
-    /**
-     * 是否需要聚合失败数据EXCEL（0-否，1-是）
-     */
-    private Integer needFailExcel;
-
-    /**
-     * 是否需要批处理执行结束后回调（0-否，1-是）
-     */
-    private Integer needCallback;
     /**
      *
      */

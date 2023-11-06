@@ -1,12 +1,18 @@
 package pers.nanahci.reactor.datacenter.controller.param;
 
-public class R<T> {
+import lombok.Data;
+import reactor.core.publisher.Mono;
+
+@Data
+public class Ret<T> {
 
     private Integer code;
+
     private String msg;
+
     private T data;
 
-    public static class CodeConstant{
+    public static class CodeConstant {
 
         public static final Integer SUCCESS = 0;
 
@@ -14,15 +20,19 @@ public class R<T> {
 
     }
 
-    public static final R<Void> SUCCESS = new R<>();
+    public static final Ret<Void> SUCCESS = new Ret<>();
 
-    private R(Integer code, String msg, T data) {
+    public static <T> Mono<Ret<T>> success(Mono<T> mono) {
+        return mono.map(t -> new Ret<T>(CodeConstant.SUCCESS, CodeConstant.SUCCESS_MSG, t));
+    }
+
+    private Ret(Integer code, String msg, T data) {
         this.code = code;
         this.msg = msg;
         this.data = data;
     }
 
-    private R() {
+    private Ret() {
         this.code = CodeConstant.SUCCESS;
         this.msg = CodeConstant.SUCCESS_MSG;
     }

@@ -1,22 +1,20 @@
 package pers.nanahci.reactor.datacenter.controller.param;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 import pers.nanahci.reactor.datacenter.enums.RpcEnum;
 
 @Data
+@Accessors(chain = true)
 public class FileUploadAttach {
 
-    // 调用类型
-    private RpcEnum type;
-
-    // 是否保持有序
-    private boolean staySort;
-
-    // 是否开启批处理模式
-    private boolean batchModel;
 
     // 上传配置模板id
-    private String templateSid;
+    private String batchNo;
+
+    private String title;
+
+    private String bizInfo;
 
 
 

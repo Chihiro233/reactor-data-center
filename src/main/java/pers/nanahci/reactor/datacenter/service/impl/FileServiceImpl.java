@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -90,6 +91,13 @@ public class FileServiceImpl implements FileService {
         fileClient.upload(bao.toByteArray(), 0, errPath + "err.xlsx");
     }
 
+    @Override
+    public String upload(InputStream ins, String path, FileStoreType type) {
+        FileClient fileClient = FileClientFactory.get(type);
+        fileClient.upload(ins,path);
+        return path;
+    }
+
     private List<List<String>> buildHead(List<String> head) {
         return head.stream().map(headValue -> {
             List<String> columnValue = new ArrayList<>();
@@ -106,4 +114,5 @@ public class FileServiceImpl implements FileService {
         }
         return buildHead(head);
     }
+
 }

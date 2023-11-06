@@ -42,10 +42,15 @@ public class LocalFileClient extends AbstractFileClient {
         try {
             File file = new File(url);
             FileUtils.writeByteArrayToFile(file, data, true);
-            //try (FileOutputStream fio = new FileOutputStream(file)){
-            //    fio.write(data);
-            //    fio.flush();
-            //}
+        } catch (Exception e) {
+            log.error("file upload failed", e);
+        }
+    }
+
+    public void upload(InputStream ins, String url) {
+        try {
+            File file = new File(url);
+            FileUtils.copyInputStreamToFile(ins, file);
         } catch (Exception e) {
             log.error("file upload failed", e);
         }

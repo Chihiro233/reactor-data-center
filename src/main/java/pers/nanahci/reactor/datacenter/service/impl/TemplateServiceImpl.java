@@ -10,10 +10,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.jsr223.GroovyScriptEngineImpl;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
+import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
@@ -36,6 +40,9 @@ import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
 import javax.script.SimpleBindings;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -207,5 +214,41 @@ public class TemplateServiceImpl implements TemplateService {
                             });
                 });
 
+    }
+
+    @Override
+    public Mono<String> commit(FilePart file, FileUploadAttach attach) {
+        String batchNo = attach.getBatchNo();
+        TemplateDO templateDO = new TemplateDO();
+        templateDO.setBatchNo(batchNo);
+        Example<TemplateDO> example = Example.of(templateDO, ExampleMatcher
+                .matching().withMatcher("batchNo", ExampleMatcher.GenericPropertyMatcher::contains));
+        // 1. 校验模板是否存在
+        // 2. 上传获取url
+        // 3. 保存任务
+        return templateRepository.findOne(example)
+                .flatMap(template -> {
+                    if (template == null) {
+                        throw new RuntimeException("模板不存在");
+                    }
+                    try {
+                        Flux<DataBuffer> content = file.content();
+                        return content.map(DataBuffer::asInputStream).reduce(SequenceInputStream::new)
+                                .flatMap(ins -> Mono.just(fileService.upload(ins,
+                                        "D:/code/proj/learn/reactor-data-center/src/main/resources/upload/" + file.filename(),
+                                        FileStoreType.LOCAL)));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }).flatMap(url -> {
+                    TemplateTaskDO task = new TemplateTaskDO();
+                    task.setStatus(TaskStatusEnum.UN_STARTER.getValue())
+                            .setTitle(attach.getTitle())
+                            .setBizInfo(attach.getBizInfo())
+                            .setFileUrl(url)
+                            .setBatchNo(batchNo);
+                    return templateTaskRepository
+                            .save(task).thenReturn(url);
+                });
     }
 }
