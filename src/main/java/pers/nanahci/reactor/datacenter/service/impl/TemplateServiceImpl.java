@@ -16,7 +16,6 @@ import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
@@ -40,14 +39,13 @@ import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
 import javax.script.SimpleBindings;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static org.springframework.data.relational.core.query.Criteria.where;
 import static org.springframework.data.relational.core.query.Query.query;
@@ -229,7 +227,7 @@ public class TemplateServiceImpl implements TemplateService {
         return templateRepository.findOne(example)
                 .flatMap(template -> {
                     if (template == null) {
-                        throw new RuntimeException("模板不存在");
+                        return Mono.error(new RuntimeException("模板不存在"));
                     }
                     try {
                         Flux<DataBuffer> content = file.content();
@@ -238,7 +236,7 @@ public class TemplateServiceImpl implements TemplateService {
                                         "D:/code/proj/learn/reactor-data-center/src/main/resources/upload/" + file.filename(),
                                         FileStoreType.LOCAL)));
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        return Mono.error(new RuntimeException("上传发生异常", e));
                     }
                 }).flatMap(url -> {
                     TemplateTaskDO task = new TemplateTaskDO();
@@ -247,8 +245,9 @@ public class TemplateServiceImpl implements TemplateService {
                             .setBizInfo(attach.getBizInfo())
                             .setFileUrl(url)
                             .setBatchNo(batchNo);
-                    return templateTaskRepository
-                            .save(task).thenReturn(url);
+                    return Mono.error(new RuntimeException("上传发生异常"));
+                    //return templateTaskRepository
+                    //        .save(task).thenReturn(url);
                 });
     }
 }
