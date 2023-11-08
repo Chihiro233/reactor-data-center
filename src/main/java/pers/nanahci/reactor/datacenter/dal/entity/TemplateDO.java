@@ -1,12 +1,8 @@
 package pers.nanahci.reactor.datacenter.dal.entity;
 
-import jakarta.persistence.Convert;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.relational.core.mapping.Table;
-import pers.nanahci.reactor.datacenter.dal.entity.convert.ConfigConverter;
-import pers.nanahci.reactor.datacenter.dal.entity.convert.JakaConfigConverter;
 
 
 @Data

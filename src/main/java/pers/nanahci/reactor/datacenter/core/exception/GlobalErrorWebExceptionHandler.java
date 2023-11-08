@@ -22,7 +22,7 @@ public class GlobalErrorWebExceptionHandler extends AbstractErrorWebExceptionHan
      * Create a new {@code AbstractErrorWebExceptionHandler}.
      *
      * @param errorAttributes    the error attributes
-     * @param properties          the resources configuration properties
+     * @param properties         the resources configuration properties
      * @param applicationContext the application context
      * @since 2.4.0
      */
@@ -47,6 +47,7 @@ public class GlobalErrorWebExceptionHandler extends AbstractErrorWebExceptionHan
 
     private Ret<Void> resolveThrowable(ServerRequest request) {
         Throwable error = getError(request);
+        log.error("error detail: ", error);
         return Ret.fail(error);
     }
 

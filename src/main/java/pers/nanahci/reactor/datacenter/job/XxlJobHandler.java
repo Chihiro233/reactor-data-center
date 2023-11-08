@@ -13,8 +13,9 @@ public class XxlJobHandler {
     @Resource
     private TemplateService templateService;
 
-    @XxlJob("batch ")
+    @XxlJob("taskExecutorJob")
     public void execute() {
+        log.info("开始执行未完成的job任务");
         templateService
                 .getUnComplete()
                 .subscribe(s -> templateService.execute(s));

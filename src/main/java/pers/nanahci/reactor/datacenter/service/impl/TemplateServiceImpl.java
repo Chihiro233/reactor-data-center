@@ -14,6 +14,9 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+import org.springframework.data.relational.core.query.Update;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
@@ -38,6 +41,7 @@ import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
+import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
@@ -106,7 +110,7 @@ public class TemplateServiceImpl implements TemplateService {
                     TemplateModel templateModel = ref.get();
                     // 可不可以配置groovy脚本呢
                     if (Objects.equals(signalType, SignalType.ON_COMPLETE)) {
-                        afterTaskComplete(templateModel);
+                        afterTaskComplete(templateModel, templateTaskDO);
                     }
                     // 处理异常
                     List<Pair<Map<String, Object>, Throwable>> pairs = errRef.get();
@@ -156,21 +160,27 @@ public class TemplateServiceImpl implements TemplateService {
      * @param model
      */
     @SneakyThrows
-    private void afterTaskComplete(TemplateModel model) {
+    private Mono<?> afterTaskComplete(TemplateModel model, TemplateTaskDO taskDO) {
         TemplateDO templateDO = model.getTemplateDO();
-        List<TemplateTaskDO> taskList = model.getTaskList();
         TemplateDO.Config config = JSON.parseObject(templateDO.getConfig(), TemplateDO.Config.class);
         PlatformTypeEnum type = PlatformTypeEnum.of(config.getType());
         AbstractWebHookHandler webHookHandler = webHookFactory.get(type);
-        for (TemplateTaskDO taskDO : taskList) {
+        return Mono.defer(() -> {
             // 执行定义的groovy 脚本
             SimpleBindings bindings = new SimpleBindings();
             bindings.put("config", config);
             bindings.put("task", taskDO);
             String script = StringEscapeUtils.unescapeJava(config.getScript());
-            CommonWebHookDTO dto = (CommonWebHookDTO) scriptEngine.eval(script, bindings);
-            webHookHandler.execute(dto).subscribe();
-        }
+            CommonWebHookDTO dto = null;
+            try {
+                dto = (CommonWebHookDTO) scriptEngine.eval(script, bindings);
+            } catch (ScriptException e) {
+                log.error("脚本执行异常,task ID is [{}]", taskDO.getId(), e);
+            }
+            return webHookHandler.execute(Objects.requireNonNull(dto, "脚本转换对象为空"));
+
+        });
+
     }
 
     @Override
@@ -179,7 +189,6 @@ public class TemplateServiceImpl implements TemplateService {
         Flux.fromIterable(templateModel.getTaskList())
                 .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
-                    AtomicInteger ati = new AtomicInteger();
                     List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
                     Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL);
 
@@ -187,19 +196,25 @@ public class TemplateServiceImpl implements TemplateService {
                                 log.info("当前数据:[{}]", JSON.toJSONString(rowData));
                             }).
                             map(rowData ->
-                            {
-                                if (ati.incrementAndGet() == 2) {
-                                    throw new RuntimeException("终端测试");
-                                }
-                                return reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                        JSON.toJSONString(rowData), String.class);
-                            })
+                                    reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
+                                            JSON.toJSONString(rowData), String.class))
 
                             .onErrorContinue((err, rowData) -> {
                                 errMap.add(new Pair<>((Map<String, Object>) rowData, err));
                             })
                             .publishOn(Schedulers.boundedElastic())
                             .doFinally(signalType -> {
+                                // 更新任务状态并执行
+                                updateTaskStatus(task)
+                                        .map(k -> {
+                                            if (k == 0) {
+                                                return Mono.error(new RuntimeException("更新失败"));
+                                            }
+                                            return k;
+                                        })
+                                        .then(afterTaskComplete(templateModel, task))
+                                        .subscribe();
+
                                 if (errMap.isEmpty()) {
                                     return;
                                 }
@@ -225,10 +240,8 @@ public class TemplateServiceImpl implements TemplateService {
         // 2. 上传获取url
         // 3. 保存任务
         return templateRepository.findOne(example)
+                .switchIfEmpty(Mono.error(new RuntimeException("模板不存在")))
                 .flatMap(template -> {
-                    if (template == null) {
-                        return Mono.error(new RuntimeException("模板不存在"));
-                    }
                     try {
                         Flux<DataBuffer> content = file.content();
                         return content.map(DataBuffer::asInputStream).reduce(SequenceInputStream::new)
@@ -245,9 +258,21 @@ public class TemplateServiceImpl implements TemplateService {
                             .setBizInfo(attach.getBizInfo())
                             .setFileUrl(url)
                             .setBatchNo(batchNo);
-                    return Mono.error(new RuntimeException("上传发生异常"));
-                    //return templateTaskRepository
-                    //        .save(task).thenReturn(url);
+                    return templateTaskRepository
+                            .save(task).thenReturn(url);
                 });
     }
+
+
+    private Mono<Long> updateTaskStatus(TemplateTaskDO task) {
+        TemplateTaskDO updateCondition = new TemplateTaskDO().setStatus(TaskStatusEnum.COMPLETE.getValue())
+                .setId(task.getId());
+        return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
+                Update.update("status", TaskStatusEnum.COMPLETE.getValue())
+                , TemplateTaskDO.class);
+
+        // return r2dbcEntityTemplate.update(updateCondition);
+
+    }
+
 }

@@ -6,10 +6,6 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWeb
 
 class LarkText {
 
-    static void main(String[] args) {
-
-    }
-
     /**
      *
      * @param opt
@@ -19,9 +15,9 @@ class LarkText {
     def CommonWebHookDTO transform(TemplateDO.Config config, TemplateTaskDO task) {
         // 组装对象
         CommonWebHookDTO webHookDTO = new CommonWebHookDTO();
-        webHookDTO.text = '你好groovy';
+        webHookDTO.text = task.title;
         webHookDTO.msgType = 'text';
-        webHookDTO.phone = '18557522311'
+        webHookDTO.phone = config.phone
         webHookDTO.identifyToken = new IdentifyToken();
         webHookDTO.identifyToken.id = config.getWebHook();
         return webHookDTO;
