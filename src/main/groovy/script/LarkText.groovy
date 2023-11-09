@@ -12,15 +12,15 @@ class LarkText {
      * @param String
      * @return
      */
-    def CommonWebHookDTO transform(TemplateDO.Config config, TemplateTaskDO task) {
+    CommonWebHookDTO transform(TemplateDO.Config config, TemplateTaskDO task) {
         // 组装对象
-        CommonWebHookDTO webHookDTO = new CommonWebHookDTO();
-        webHookDTO.text = task.title;
-        webHookDTO.msgType = 'text';
+        CommonWebHookDTO webHookDTO = new CommonWebHookDTO()
+        webHookDTO.text = task.title
+        webHookDTO.msgType = 'text'
         webHookDTO.phone = config.phone
-        webHookDTO.identifyToken = new IdentifyToken();
-        webHookDTO.identifyToken.id = config.getWebHook();
-        return webHookDTO;
+        webHookDTO.identifyToken = new IdentifyToken()
+        webHookDTO.identifyToken.id = config.getWebHook()
+        return webHookDTO
     }
 
 }

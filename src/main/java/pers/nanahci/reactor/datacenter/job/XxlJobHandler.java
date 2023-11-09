@@ -5,6 +5,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import pers.nanahci.reactor.datacenter.service.TemplateService;
+import reactor.core.publisher.Mono;
 
 @Component
 @Slf4j
@@ -18,7 +19,11 @@ public class XxlJobHandler {
         log.info("开始执行未完成的job任务");
         templateService
                 .getUnComplete()
-                .subscribe(s -> templateService.execute(s));
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("没有未完成的任务");
+                    return Mono.empty();
+                }))
+                .subscribe(model -> templateService.execute(model));
 
     }
 

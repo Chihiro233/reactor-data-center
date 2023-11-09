@@ -4,16 +4,18 @@ package pers.nanahci.reactor.datacenter.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.xxl.job.core.context.XxlJobContext;
 import groovy.json.StringEscapeUtils;
-import groovy.lang.GroovyShell;
 import javafx.util.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.jsr223.GroovyScriptEngineImpl;
+import org.redisson.api.RLockReactive;
+import org.redisson.api.RedissonReactiveClient;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.relational.core.query.Criteria;
 import org.springframework.data.relational.core.query.Query;
 import org.springframework.data.relational.core.query.Update;
@@ -48,7 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.data.relational.core.query.Criteria.where;
@@ -69,9 +71,13 @@ public class TemplateServiceImpl implements TemplateService {
 
     private final ReactorWebClient reactorWebClient;
 
+
+    private final ReactiveStringRedisTemplate lockTemplate;
+
+    private final RedissonReactiveClient redissonReactiveClient;
+
     private final WebHookFactory webHookFactory;
     private final ScriptEngine scriptEngine = new GroovyScriptEngineImpl();
-    private static final GroovyShell groovyShell = new GroovyShell();
 
     @Override
     public void execute(Long id, String batchNo) {
@@ -189,43 +195,52 @@ public class TemplateServiceImpl implements TemplateService {
         Flux.fromIterable(templateModel.getTaskList())
                 .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
-                    List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
-                    Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL);
-
-                    excelFile.doOnNext(rowData -> {
-                                log.info("当前数据:[{}]", JSON.toJSONString(rowData));
-                            }).
-                            map(rowData ->
-                                    reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                            JSON.toJSONString(rowData), String.class))
-
-                            .onErrorContinue((err, rowData) -> {
-                                errMap.add(new Pair<>((Map<String, Object>) rowData, err));
-                            })
-                            .publishOn(Schedulers.boundedElastic())
-                            .doFinally(signalType -> {
-                                // 更新任务状态并执行
-                                updateTaskStatus(task)
-                                        .map(k -> {
-                                            if (k == 0) {
-                                                return Mono.error(new RuntimeException("更新失败"));
-                                            }
-                                            return k;
-                                        })
-                                        .then(afterTaskComplete(templateModel, task))
-                                        .subscribe();
-
-                                if (errMap.isEmpty()) {
-                                    return;
+                    // try lock
+                    String key = "templateTask:batchId:" + task.getId();
+                    RLockReactive lock = redissonReactiveClient.getLock(key);
+                    lock.tryLock(2, TimeUnit.SECONDS)
+                            .filterWhen(result -> {
+                                if (!result) {
+                                    log.warn("锁已经被占用,锁key:[{}]", key);
+                                } else {
+                                    log.debug("加锁成功,锁key:[{}]", key);
                                 }
-                                // 生成失败的excel文件
-                                ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR.execute(() -> {
-                                    fileService.createExcelFile(errMap, FileStoreType.LOCAL);
-                                });
-                            }).subscribe(resp -> {
-                                log.info("收到返回消息:{}", resp);
-                            });
+                                return Mono.just(result);
+                            })
+                            .then(executeTask(task, templateModel))
+                            .doOnSubscribe((x) -> log.info("执行完成"))
+                            .doFinally((signalType -> {
+                                lock.unlock().subscribe();
+                            }))
+                            .subscribe();
                 });
+    }
+
+    public static void main(String[] args) {
+        Integer[] arrays = {1, 2, 3, 4};
+        // Mono<Object> mono = Mono.fromRunnable(() -> {
+        //     log.info("run!");
+        // });
+        // mono.subscribe(s -> log.info("end"));
+        Flux.fromArray(arrays)
+                .publishOn(Schedulers.single())
+                .flatMap(n -> {
+                    log.info("flatMap:[{}]", n);
+                    if (n == 3) {
+                        return Mono.error(new RuntimeException("s"));
+                    }
+                    return Mono.just(n);
+                })
+                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                .map(n->{
+                    log.info("2 flatMap:[{}]",n);
+                    return n;
+                }).publishOn(Schedulers.single())
+                .doFinally(signalType -> {
+                    log.info("finally");
+                }).doOnSubscribe(s -> log.info("subscribe on"))
+                .doOnTerminate(() -> log.info("terminate"))
+                .subscribe((x) -> log.info("n={}", x));
 
     }
 
@@ -271,8 +286,41 @@ public class TemplateServiceImpl implements TemplateService {
                 Update.update("status", TaskStatusEnum.COMPLETE.getValue())
                 , TemplateTaskDO.class);
 
-        // return r2dbcEntityTemplate.update(updateCondition);
+    }
 
+    private Mono<?> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
+        TemplateDO templateDO = templateModel.getTemplateDO();
+        List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
+        Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL);
+        return excelFile.doOnNext(rowData -> {
+                    log.info("当前数据:[{}]", JSON.toJSONString(rowData));
+                })
+                .map(rowData ->
+                        reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
+                                JSON.toJSONString(rowData), String.class))
+                .onErrorContinue((err, rowData) -> {
+                    errMap.add(new Pair<>((Map<String, Object>) rowData, err));
+                })
+                .then(Mono.defer(() ->
+                        // 更新任务状态
+                        updateTaskStatus(task)
+                                .filterWhen(uc -> {
+                                    // update count
+                                    if (uc == 0) {
+                                        return Mono.error(new RuntimeException("更新失败"));
+                                    }
+                                    return Mono.just(true);
+                                })
+                                .then(afterTaskComplete(templateModel, task))
+                                .doFinally((signalType -> {
+                                    if (errMap.isEmpty()) {
+                                        return;
+                                    }
+                                    // 生成失败的excel文件
+                                    ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR.execute(() -> {
+                                        fileService.createExcelFile(errMap, FileStoreType.LOCAL);
+                                    });
+                                }))));
     }
 
 }
