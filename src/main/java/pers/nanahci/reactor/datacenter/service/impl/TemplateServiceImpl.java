@@ -2,6 +2,7 @@ package pers.nanahci.reactor.datacenter.service.impl;
 
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.xxl.job.core.context.XxlJobContext;
 import groovy.json.StringEscapeUtils;
 import javafx.util.Pair;
@@ -21,6 +22,7 @@ import org.springframework.data.relational.core.query.Query;
 import org.springframework.data.relational.core.query.Update;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
@@ -30,6 +32,7 @@ import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateRepository;
 import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateTaskRepository;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
+import pers.nanahci.reactor.datacenter.enums.ExecuteTypeEnum;
 import pers.nanahci.reactor.datacenter.enums.PlatformTypeEnum;
 import pers.nanahci.reactor.datacenter.enums.TaskStatusEnum;
 import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandler;
@@ -46,10 +49,8 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.io.SequenceInputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -151,7 +152,8 @@ public class TemplateServiceImpl implements TemplateService {
                     return r2dbcEntityTemplate.select(TemplateDO.class)
                             .matching(query(where("batchNo").is(batchNo)))
                             .one()
-                            .publishOn(Schedulers.boundedElastic()).map(template ->
+                            .publishOn(Schedulers.boundedElastic())
+                            .map(template ->
                                     TemplateModel.builder().templateDO(template)
                                             .taskList(group.collectList().block())
                                             .build());
@@ -198,8 +200,12 @@ public class TemplateServiceImpl implements TemplateService {
                     // try lock
                     String key = "templateTask:batchId:" + task.getId();
                     RLockReactive lock = redissonReactiveClient.getLock(key);
-                    lock.tryLock(2, TimeUnit.SECONDS)
+                    log.info("加锁当前线程:{}", Thread.currentThread());
+                    long mockTid = ThreadLocalRandom.current().nextLong();
+
+                    lock.tryLock(2, 300, TimeUnit.SECONDS,mockTid)
                             .filterWhen(result -> {
+                                log.info("filterWhen线程:[{}]",Thread.currentThread());
                                 if (!result) {
                                     log.warn("锁已经被占用,锁key:[{}]", key);
                                 } else {
@@ -208,11 +214,11 @@ public class TemplateServiceImpl implements TemplateService {
                                 return Mono.just(result);
                             })
                             .then(executeTask(task, templateModel))
-                            .doOnSubscribe((x) -> log.info("执行完成"))
                             .doFinally((signalType -> {
-                                lock.unlock().subscribe();
+                                log.info("解锁当前线程:{}", Thread.currentThread());
+                                lock.unlock(mockTid).subscribe();
                             }))
-                            .subscribe();
+                            .subscribe(x -> log.info("加锁线程"));
                 });
     }
 
@@ -226,16 +232,16 @@ public class TemplateServiceImpl implements TemplateService {
                 .publishOn(Schedulers.single())
                 .flatMap(n -> {
                     log.info("flatMap:[{}]", n);
-                    if (n == 3) {
-                        return Mono.error(new RuntimeException("s"));
-                    }
+                    //if (n == 3) {
+                    //    return Mono.error(new RuntimeException("s"));
+                    //}
                     return Mono.just(n);
                 })
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
-                .map(n->{
-                    log.info("2 flatMap:[{}]",n);
+                //.publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                .map(n -> {
+                    log.info("2 flatMap:[{}]", n);
                     return n;
-                }).publishOn(Schedulers.single())
+                })//.publishOn(Schedulers.single())
                 .doFinally(signalType -> {
                     log.info("finally");
                 }).doOnSubscribe(s -> log.info("subscribe on"))
@@ -280,8 +286,6 @@ public class TemplateServiceImpl implements TemplateService {
 
 
     private Mono<Long> updateTaskStatus(TemplateTaskDO task) {
-        TemplateTaskDO updateCondition = new TemplateTaskDO().setStatus(TaskStatusEnum.COMPLETE.getValue())
-                .setId(task.getId());
         return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                 Update.update("status", TaskStatusEnum.COMPLETE.getValue())
                 , TemplateTaskDO.class);
@@ -291,16 +295,36 @@ public class TemplateServiceImpl implements TemplateService {
     private Mono<?> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
         List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
-        Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL);
-        return excelFile.doOnNext(rowData -> {
+        Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
+                .doOnNext(rowData -> {
                     log.info("当前数据:[{}]", JSON.toJSONString(rowData));
-                })
-                .map(rowData ->
-                        reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                JSON.toJSONString(rowData), String.class))
-                .onErrorContinue((err, rowData) -> {
-                    errMap.add(new Pair<>((Map<String, Object>) rowData, err));
-                })
+                });
+
+        Flux<String> rpcFlux;
+        // 如果是批量的则拆分
+        if (isBatch(templateDO.getExecuteType())) {
+            rpcFlux = excelFile.buffer(templateDO.getBatchSize())
+                    .flatMap(rowDataList -> reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
+                            JSONArray.toJSONString(rowDataList), String.class))
+                    .onErrorContinue((err, rowDataList) -> {
+                        List<Map<String, Object>> gRowDataList = (List<Map<String, Object>>) rowDataList;
+                        if (CollectionUtils.isEmpty(gRowDataList)) {
+                            return;
+                        }
+                        for (Map<String, Object> rowData : gRowDataList) {
+                            errMap.add(new Pair<>(rowData, err));
+                        }
+                    });
+
+        } else {
+            rpcFlux = excelFile.flatMap(rowData ->
+                            reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
+                                    JSON.toJSONString(rowData), String.class))
+                    .onErrorContinue((err, rowData) -> {
+                        errMap.add(new Pair<>((Map<String, Object>) rowData, err));
+                    });
+        }
+        return rpcFlux.doOnNext(resp -> log.info(resp))
                 .then(Mono.defer(() ->
                         // 更新任务状态
                         updateTaskStatus(task)
@@ -322,5 +346,10 @@ public class TemplateServiceImpl implements TemplateService {
                                     });
                                 }))));
     }
+
+    private boolean isBatch(Integer executeType) {
+        return Objects.equals(ExecuteTypeEnum.Batch.getValue(), executeType);
+    }
+
 
 }

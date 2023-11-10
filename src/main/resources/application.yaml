@@ -20,6 +20,11 @@ spring:
         group:  # 使用的 Nacos 配置分组，默认为 DEFAULT_GROUP
         name: # 使用的 Nacos 配置集的 dataId，默认为 spring.application.name
         file-extension: yaml # 使用的 Nacos 配置集的 dataId 的文件拓展名，同时也是 Nacos 配置集的配置格式，默认为 properties
+  data:
+    redis:
+      database: 0
+      host: localhost
+      port: 6379
   r2dbc:
     url: r2dbc:mysql://localhost:3306/data-center?allowMultiQueries=true&useUnicode=true&useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&autoReconnect=true&nullCatalogMeansCurrent=true
     username: root

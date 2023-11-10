@@ -24,7 +24,6 @@ public class XxlJobHandler {
                     return Mono.empty();
                 }))
                 .subscribe(model -> templateService.execute(model));
-
     }
 
 }

@@ -23,11 +23,12 @@ public class TemplateDO {
      * 请求方式（1-GET，2-POST）
      */
     private Integer methodType;
-
     /**
      * 执行方式（1-逐行调用，2-批量调用）
      */
     private Integer executeType;
+
+    private Integer batchSize;
     /**
      * 是否需要执行文件（0-否，1-是）
      */
