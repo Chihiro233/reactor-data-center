@@ -80,6 +80,7 @@ public class TemplateServiceImpl implements TemplateService {
     private final WebHookFactory webHookFactory;
     private final ScriptEngine scriptEngine = new GroovyScriptEngineImpl();
 
+
     @Override
     public void execute(Long id, String batchNo) {
         // 查询模板
@@ -200,12 +201,11 @@ public class TemplateServiceImpl implements TemplateService {
                     // try lock
                     String key = "templateTask:batchId:" + task.getId();
                     RLockReactive lock = redissonReactiveClient.getLock(key);
-                    log.info("加锁当前线程:{}", Thread.currentThread());
                     long mockTid = ThreadLocalRandom.current().nextLong();
 
-                    lock.tryLock(2, 300, TimeUnit.SECONDS,mockTid)
+                    lock.tryLock(2, 300, TimeUnit.SECONDS, mockTid)
                             .filterWhen(result -> {
-                                log.info("filterWhen线程:[{}]",Thread.currentThread());
+                                log.info("filterWhen线程:[{}]", Thread.currentThread());
                                 if (!result) {
                                     log.warn("锁已经被占用,锁key:[{}]", key);
                                 } else {
@@ -213,12 +213,13 @@ public class TemplateServiceImpl implements TemplateService {
                                 }
                                 return Mono.just(result);
                             })
-                            .then(executeTask(task, templateModel))
+                            .flatMap(r -> preProcess(task, templateModel))
+                            .flatMap(t -> executeTask(task, templateModel))
+                            .flatMap(errMap -> postProcess(task, templateModel, errMap))
                             .doFinally((signalType -> {
-                                log.info("解锁当前线程:{}", Thread.currentThread());
                                 lock.unlock(mockTid).subscribe();
                             }))
-                            .subscribe(x -> log.info("加锁线程"));
+                            .subscribe();
                 });
     }
 
@@ -285,14 +286,14 @@ public class TemplateServiceImpl implements TemplateService {
     }
 
 
-    private Mono<Long> updateTaskStatus(TemplateTaskDO task) {
+    private Mono<Long> updateTaskStatus(TemplateTaskDO task, TaskStatusEnum taskStatus) {
         return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
-                Update.update("status", TaskStatusEnum.COMPLETE.getValue())
+                Update.update("status", taskStatus.getValue())
                 , TemplateTaskDO.class);
 
     }
 
-    private Mono<?> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
+    private Mono<List<Pair<Map<String, Object>, Throwable>>> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
         List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
         Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
@@ -324,27 +325,34 @@ public class TemplateServiceImpl implements TemplateService {
                         errMap.add(new Pair<>((Map<String, Object>) rowData, err));
                     });
         }
-        return rpcFlux.doOnNext(resp -> log.info(resp))
-                .then(Mono.defer(() ->
-                        // 更新任务状态
-                        updateTaskStatus(task)
-                                .filterWhen(uc -> {
-                                    // update count
-                                    if (uc == 0) {
-                                        return Mono.error(new RuntimeException("更新失败"));
-                                    }
-                                    return Mono.just(true);
-                                })
-                                .then(afterTaskComplete(templateModel, task))
-                                .doFinally((signalType -> {
-                                    if (errMap.isEmpty()) {
-                                        return;
-                                    }
-                                    // 生成失败的excel文件
-                                    ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR.execute(() -> {
-                                        fileService.createExcelFile(errMap, FileStoreType.LOCAL);
-                                    });
-                                }))));
+        return rpcFlux.then(Mono.just(errMap));
+    }
+
+    private Mono<?> preProcess(TemplateTaskDO task, TemplateModel templateModel) {
+        return updateTaskStatus(task, TaskStatusEnum.WORKING);
+    }
+
+    private Mono<?> postProcess(TemplateTaskDO task, TemplateModel templateModel, List<Pair<Map<String, Object>, Throwable>> errMap) {
+        return Mono.defer(() ->
+                // 更新任务状态
+                updateTaskStatus(task, TaskStatusEnum.COMPLETE)
+                        .filterWhen(uc -> {
+                            // update count
+                            if (uc == 0) {
+                                return Mono.error(new RuntimeException("更新失败"));
+                            }
+                            return Mono.just(true);
+                        })
+                        .then(afterTaskComplete(templateModel, task))
+                        .doFinally((signalType -> {
+                            if (errMap.isEmpty()) {
+                                return;
+                            }
+                            // 生成失败的excel文件
+                            ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR.execute(() -> {
+                                fileService.createExcelFile(errMap, FileStoreType.LOCAL);
+                            });
+                        })));
     }
 
     private boolean isBatch(Integer executeType) {
