@@ -40,9 +40,12 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import pers.nanahci.reactor.datacenter.service.FileService;
 import pers.nanahci.reactor.datacenter.service.TemplateService;
+import pers.nanahci.reactor.datacenter.util.SpringContextUtil;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
@@ -50,6 +53,7 @@ import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.io.SequenceInputStream;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -194,7 +198,6 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public void execute(TemplateModel templateModel) {
-        TemplateDO templateDO = templateModel.getTemplateDO();
         Flux.fromIterable(templateModel.getTaskList())
                 .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
@@ -213,9 +216,9 @@ public class TemplateServiceImpl implements TemplateService {
                                 }
                                 return Mono.just(result);
                             })
-                            .flatMap(r -> preProcess(task, templateModel))
-                            .flatMap(t -> executeTask(task, templateModel))
-                            .flatMap(errMap -> postProcess(task, templateModel, errMap))
+                            .then(preProcess(task, templateModel))
+                            .then(executeTask(task, templateModel))
+                            .then(postProcess(task, templateModel))
                             .doFinally((signalType -> {
                                 lock.unlock(mockTid).subscribe();
                             }))
@@ -229,26 +232,41 @@ public class TemplateServiceImpl implements TemplateService {
         //     log.info("run!");
         // });
         // mono.subscribe(s -> log.info("end"));
-        Flux.fromArray(arrays)
-                .publishOn(Schedulers.single())
+        Flux<Integer> flux1 = Flux.fromArray(arrays)
+                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .flatMap(n -> {
                     log.info("flatMap:[{}]", n);
-                    //if (n == 3) {
-                    //    return Mono.error(new RuntimeException("s"));
-                    //}
+                    if (n == 3) {
+                        return Mono.error(new RuntimeException("s"));
+                    }
                     return Mono.just(n);
                 })
-                //.publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .map(n -> {
                     log.info("2 flatMap:[{}]", n);
                     return n;
-                })//.publishOn(Schedulers.single())
-                .doFinally(signalType -> {
-                    log.info("finally");
-                }).doOnSubscribe(s -> log.info("subscribe on"))
-                .doOnTerminate(() -> log.info("terminate"))
-                .subscribe((x) -> log.info("n={}", x));
+                })
+                .onErrorContinue((x, e) -> {
 
+                });
+        flux1.subscribe((x) -> log.info("flux1-{}", x));
+
+        Flux<Integer> flux2 = Flux.fromArray(arrays)
+                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
+                .flatMap(n -> {
+                    log.info("flatMap:[{}]", n);
+                    if (n == 3) {
+                        return Mono.error(new RuntimeException("s"));
+                    }
+                    return Mono.just(n);
+                }).onErrorContinue((x, e) -> {
+
+                });
+        flux2.subscribe((x) -> log.info("flux2-{}", x));
+        Mono.when(flux1, flux2)
+                .then(Mono.fromSupplier(() -> {
+                    log.info("快完成了");
+                    return true;
+                })).subscribe(x -> log.info("结束！！"));
     }
 
     @Override
@@ -288,21 +306,32 @@ public class TemplateServiceImpl implements TemplateService {
 
     private Mono<Long> updateTaskStatus(TemplateTaskDO task, TaskStatusEnum taskStatus) {
         return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
-                Update.update("status", taskStatus.getValue())
-                , TemplateTaskDO.class);
+                        Update.update("status", taskStatus.getValue()), TemplateTaskDO.class)
+                .filterWhen(uc -> {
+                    // update count
+                    if (uc == 0) {
+                        return Mono.error(new RuntimeException("更新失败"));
+                    }
+                    return Mono.just(true);
+                });
 
     }
 
-    private Mono<List<Pair<Map<String, Object>, Throwable>>> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
+    private Mono<Void> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
         List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
+        Queue<Pair<Map<String, Object>, Throwable>> errQueue = new ArrayBlockingQueue<>(100);
         Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
                 .doOnNext(rowData -> {
                     log.info("当前数据:[{}]", JSON.toJSONString(rowData));
                 });
 
         Flux<String> rpcFlux;
-        // 如果是批量的则拆分
+        Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().unicast().onBackpressureBuffer();
+        Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
+        // TODO 可能有问题
+        subscribeError(errFlux);
+        // 如果是批量的则拆分`
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())
                     .flatMap(rowDataList -> reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
@@ -313,7 +342,9 @@ public class TemplateServiceImpl implements TemplateService {
                             return;
                         }
                         for (Map<String, Object> rowData : gRowDataList) {
-                            errMap.add(new Pair<>(rowData, err));
+                            Flux<Pair<Map<String, Object>, Throwable>> generate = Flux.generate(sink -> {
+                                errSink.tryEmitNext(new Pair<>(rowData, err));
+                            });
                         }
                     });
 
@@ -322,41 +353,35 @@ public class TemplateServiceImpl implements TemplateService {
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
                                     JSON.toJSONString(rowData), String.class))
                     .onErrorContinue((err, rowData) -> {
-                        errMap.add(new Pair<>((Map<String, Object>) rowData, err));
+                        errSink.tryEmitNext(new Pair<>((Map<String, Object>) rowData, err));
                     });
         }
-        return rpcFlux.then(Mono.just(errMap));
+        return Mono.when(rpcFlux, errFlux);
     }
 
     private Mono<?> preProcess(TemplateTaskDO task, TemplateModel templateModel) {
         return updateTaskStatus(task, TaskStatusEnum.WORKING);
     }
 
-    private Mono<?> postProcess(TemplateTaskDO task, TemplateModel templateModel, List<Pair<Map<String, Object>, Throwable>> errMap) {
-        return Mono.defer(() ->
-                // 更新任务状态
-                updateTaskStatus(task, TaskStatusEnum.COMPLETE)
-                        .filterWhen(uc -> {
-                            // update count
-                            if (uc == 0) {
-                                return Mono.error(new RuntimeException("更新失败"));
-                            }
-                            return Mono.just(true);
-                        })
-                        .then(afterTaskComplete(templateModel, task))
-                        .doFinally((signalType -> {
-                            if (errMap.isEmpty()) {
-                                return;
-                            }
-                            // 生成失败的excel文件
-                            ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR.execute(() -> {
-                                fileService.createExcelFile(errMap, FileStoreType.LOCAL);
-                            });
-                        })));
+    private Mono<?> postProcess(TemplateTaskDO task, TemplateModel templateModel) {
+        return updateTaskStatus(task, TaskStatusEnum.COMPLETE)
+                .then(afterTaskComplete(templateModel, task));
     }
 
     private boolean isBatch(Integer executeType) {
         return Objects.equals(ExecuteTypeEnum.Batch.getValue(), executeType);
+    }
+
+    private void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux) {
+        flux.buffer(1000)
+                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
+                .doFinally(signalType -> {
+                    log.info("consumer error success");
+                })
+                .subscribe(data -> {
+                    FileService fileService = SpringContextUtil.getBean(FileService.class);
+                    fileService.createExcelFile(data, FileStoreType.LOCAL);
+                });
     }
 
 

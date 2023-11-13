@@ -16,6 +16,7 @@ public interface FileService {
 
     void createExcelFile(List<Pair<Map<String, Object>, Throwable>> errData, FileStoreType type);
 
+
     String upload(InputStream ins, String path, FileStoreType fileStoreType);
 
 
