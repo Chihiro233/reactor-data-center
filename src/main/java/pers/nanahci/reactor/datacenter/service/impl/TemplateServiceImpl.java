@@ -227,46 +227,14 @@ public class TemplateServiceImpl implements TemplateService {
     }
 
     public static void main(String[] args) {
-        Integer[] arrays = {1, 2, 3, 4};
-        // Mono<Object> mono = Mono.fromRunnable(() -> {
-        //     log.info("run!");
-        // });
-        // mono.subscribe(s -> log.info("end"));
-        Flux<Integer> flux1 = Flux.fromArray(arrays)
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
-                .flatMap(n -> {
-                    log.info("flatMap:[{}]", n);
-                    if (n == 3) {
-                        return Mono.error(new RuntimeException("s"));
-                    }
-                    return Mono.just(n);
-                })
-                .map(n -> {
-                    log.info("2 flatMap:[{}]", n);
-                    return n;
-                })
-                .onErrorContinue((x, e) -> {
-
+        Flux<Integer> flux = Flux.just(1, 2, 0, 4, 5)
+                .flatMap(i -> Mono.just(10 / i))
+                .onErrorContinue((error, value) -> {
+                    System.err.println("Encountered error: " + error.getMessage());
+                    System.err.println("Failed value: " + value);
                 });
-        flux1.subscribe((x) -> log.info("flux1-{}", x));
 
-        Flux<Integer> flux2 = Flux.fromArray(arrays)
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
-                .flatMap(n -> {
-                    log.info("flatMap:[{}]", n);
-                    if (n == 3) {
-                        return Mono.error(new RuntimeException("s"));
-                    }
-                    return Mono.just(n);
-                }).onErrorContinue((x, e) -> {
-
-                });
-        flux2.subscribe((x) -> log.info("flux2-{}", x));
-        Mono.when(flux1, flux2)
-                .then(Mono.fromSupplier(() -> {
-                    log.info("快完成了");
-                    return true;
-                })).subscribe(x -> log.info("结束！！"));
+        flux.subscribe(System.out::println);
     }
 
     @Override
@@ -327,25 +295,30 @@ public class TemplateServiceImpl implements TemplateService {
                 });
 
         Flux<String> rpcFlux;
-        Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().multicast().onBackpressureBuffer();
         Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
         // TODO 可能有问题
         subscribeError(errFlux);
         // 如果是批量的则拆分`
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())
-                    .flatMap(rowDataList -> reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                            JSONArray.toJSONString(rowDataList), String.class))
-                    .onErrorContinue((err, rowDataList) -> {
-                        List<Map<String, Object>> gRowDataList = (List<Map<String, Object>>) rowDataList;
-                        if (CollectionUtils.isEmpty(gRowDataList)) {
-                            return;
-                        }
-                        for (Map<String, Object> rowData : gRowDataList) {
-                            Flux<Pair<Map<String, Object>, Throwable>> generate = Flux.generate(sink -> {
-                                errSink.tryEmitNext(new Pair<>(rowData, err));
-                            });
-                        }
+                    .flatMap(rowDataList ->
+                            reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
+                                    JSONArray.toJSONString(rowDataList), String.class)
+                            .publishOn(Schedulers.fromExecutor(ExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
+                            .onErrorResume((err) -> {
+                                if (CollectionUtils.isEmpty(rowDataList)) {
+                                    return Mono.empty();
+                                }
+                                for (Map<String, Object> rowData : rowDataList) {
+                                    log.info("emitNext:[{}]", rowData);
+                                    errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
+                                }
+                                return Mono.empty();
+                            }))
+                    .doFinally((s) -> {
+                        log.info("emitComplete");
+                        errSink.tryEmitComplete();
                     });
 
         } else {
@@ -353,7 +326,9 @@ public class TemplateServiceImpl implements TemplateService {
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
                                     JSON.toJSONString(rowData), String.class))
                     .onErrorContinue((err, rowData) -> {
-                        errSink.tryEmitNext(new Pair<>((Map<String, Object>) rowData, err));
+                        errSink.emitNext(new Pair<>((Map<String, Object>) rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
+                    }).doFinally((s) -> {
+                        errSink.tryEmitComplete();
                     });
         }
         return Mono.when(rpcFlux, errFlux);
@@ -373,7 +348,11 @@ public class TemplateServiceImpl implements TemplateService {
     }
 
     private void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux) {
-        flux.buffer(1000)
+        flux.log()
+                .buffer(2)
+                .doOnNext(d -> {
+                    log.info("收到错误消息");
+                })
                 .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
                 .doFinally(signalType -> {
                     log.info("consumer error success");
