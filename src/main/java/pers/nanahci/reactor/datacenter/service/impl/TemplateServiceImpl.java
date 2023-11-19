@@ -27,6 +27,7 @@ import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
+import pers.nanahci.reactor.datacenter.core.reactor.SubscribeErrorHolder;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateRepository;
@@ -40,8 +41,7 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import pers.nanahci.reactor.datacenter.service.FileService;
 import pers.nanahci.reactor.datacenter.service.TemplateService;
-import pers.nanahci.reactor.datacenter.util.SpringContextUtil;
-import reactor.core.Disposable;
+import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
@@ -76,7 +76,6 @@ public class TemplateServiceImpl implements TemplateService {
 
     private final ReactorWebClient reactorWebClient;
 
-
     private final ReactiveStringRedisTemplate lockTemplate;
 
     private final RedissonReactiveClient redissonReactiveClient;
@@ -84,62 +83,6 @@ public class TemplateServiceImpl implements TemplateService {
     private final WebHookFactory webHookFactory;
     private final ScriptEngine scriptEngine = new GroovyScriptEngineImpl();
 
-
-    @Override
-    public void execute(Long id, String batchNo) {
-        // 查询模板
-        Mono<TemplateDO> temMono = templateRepository.findById(id);
-        ExampleMatcher exampleMatcher = ExampleMatcher.matching().withMatcher("batchNo", matcher -> matcher.ignoreCase().contains());
-        TemplateTaskDO templateTaskDO = new TemplateTaskDO().setBatchNo(batchNo);
-        // 查询任务
-        Example<TemplateTaskDO> example = Example.of(templateTaskDO, exampleMatcher);
-        Mono<TemplateTaskDO> taskMono = templateTaskRepository.findOne(example);
-        // 组合两个操作，最后打印出调用的数据
-        final AtomicReference<TemplateModel> ref = new AtomicReference<>();
-        final AtomicReference<List<Pair<Map<String, Object>, Throwable>>> errRef =
-                new AtomicReference<>(new ArrayList<>());
-        Mono.zip(temMono, taskMono)
-                .flatMapMany(tuple -> {
-                    TemplateDO templateDO = tuple.getT1();
-                    TemplateTaskDO taskDO = tuple.getT2();
-                    TemplateModel model = TemplateModel.builder()
-                            .taskList(List.of(taskDO))
-                            .templateDO(templateDO).build();
-                    ref.set(model);
-
-                    log.info("当前线程名称:{}", Thread.currentThread().getName());
-                    Flux<Map<String, Object>> excelFile = fileService.getExcelFile(taskDO.getFileUrl(), FileStoreType.LOCAL);
-
-                    return excelFile.map(rowData ->
-                            reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                    JSON.toJSONString(rowData), String.class));
-                })
-                .onErrorContinue((err, rowData) -> {
-                    errRef.get().add(new Pair<>((Map<String, Object>) rowData, err));
-                })
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
-                .doFinally(signalType -> {
-                    TemplateModel templateModel = ref.get();
-                    // 可不可以配置groovy脚本呢
-                    if (Objects.equals(signalType, SignalType.ON_COMPLETE)) {
-                        afterTaskComplete(templateModel, templateTaskDO);
-                    }
-                    // 处理异常
-                    List<Pair<Map<String, Object>, Throwable>> pairs = errRef.get();
-                    if (pairs.isEmpty()) {
-                        return;
-                    }
-                    // 生成失败的excel文件
-                    String configStr = templateModel.getTemplateDO().getConfig();
-                    TemplateDO.Config config = JSON.parseObject(configStr, TemplateDO.Config.class);
-                    String headList = config.getHeadList();
-                    List<String> head = JSON.parseArray(headList, String.class);
-
-                }).subscribe(response -> {
-                    log.info("收到的回复:[{}]", response);
-                });
-
-    }
 
     @Override
     public Flux<TemplateModel> getUnComplete() {
@@ -289,7 +232,7 @@ public class TemplateServiceImpl implements TemplateService {
         TemplateDO templateDO = templateModel.getTemplateDO();
         List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
         Queue<Pair<Map<String, Object>, Throwable>> errQueue = new ArrayBlockingQueue<>(100);
-        Flux<Map<String, Object>> excelFile = fileService.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
+        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
                 .doOnNext(rowData -> {
                     log.info("当前数据:[{}]", JSON.toJSONString(rowData));
                 });
@@ -297,25 +240,26 @@ public class TemplateServiceImpl implements TemplateService {
         Flux<String> rpcFlux;
         Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().multicast().onBackpressureBuffer();
         Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
-        // TODO 可能有问题
-        subscribeError(errFlux);
+
+        SubscribeErrorHolder errorHolder = SubscribeErrorHolder.build();
+        errorHolder.subscribeError(errFlux);
         // 如果是批量的则拆分`
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())
                     .flatMap(rowDataList ->
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                    JSONArray.toJSONString(rowDataList), String.class)
-                            .publishOn(Schedulers.fromExecutor(ExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
-                            .onErrorResume((err) -> {
-                                if (CollectionUtils.isEmpty(rowDataList)) {
-                                    return Mono.empty();
-                                }
-                                for (Map<String, Object> rowData : rowDataList) {
-                                    log.info("emitNext:[{}]", rowData);
-                                    errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
-                                }
-                                return Mono.empty();
-                            }))
+                                            JSONArray.toJSONString(rowDataList), String.class)
+                                    .publishOn(Schedulers.fromExecutor(ExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
+                                    .onErrorResume((err) -> {
+                                        if (CollectionUtils.isEmpty(rowDataList)) {
+                                            return Mono.empty();
+                                        }
+                                        for (Map<String, Object> rowData : rowDataList) {
+                                            log.info("emitNext:[{}]", rowData);
+                                            errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
+                                        }
+                                        return Mono.empty();
+                                    }))
                     .doFinally((s) -> {
                         log.info("emitComplete");
                         errSink.tryEmitComplete();
@@ -346,22 +290,5 @@ public class TemplateServiceImpl implements TemplateService {
     private boolean isBatch(Integer executeType) {
         return Objects.equals(ExecuteTypeEnum.Batch.getValue(), executeType);
     }
-
-    private void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux) {
-        flux.log()
-                .buffer(2)
-                .doOnNext(d -> {
-                    log.info("收到错误消息");
-                })
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
-                .doFinally(signalType -> {
-                    log.info("consumer error success");
-                })
-                .subscribe(data -> {
-                    FileService fileService = SpringContextUtil.getBean(FileService.class);
-                    fileService.createExcelFile(data, FileStoreType.LOCAL);
-                });
-    }
-
 
 }

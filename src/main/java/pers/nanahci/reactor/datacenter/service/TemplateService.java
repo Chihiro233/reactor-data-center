@@ -10,12 +10,6 @@ import reactor.core.publisher.Mono;
 
 public interface TemplateService {
 
-    /**
-     * @param id template id
-     */
-
-    void execute(Long id, String batchNo);
-
     Flux<TemplateModel> getUnComplete();
 
     void execute(TemplateModel templateModel);
