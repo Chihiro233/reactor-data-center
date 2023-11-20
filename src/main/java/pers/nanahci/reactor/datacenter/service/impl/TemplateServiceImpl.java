@@ -9,6 +9,8 @@ import javafx.util.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.utils.FileNameUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.codehaus.groovy.jsr223.GroovyScriptEngineImpl;
 import org.redisson.api.RLockReactive;
 import org.redisson.api.RedissonReactiveClient;
@@ -42,21 +44,21 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWeb
 import pers.nanahci.reactor.datacenter.service.FileService;
 import pers.nanahci.reactor.datacenter.service.TemplateService;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
+import pers.nanahci.reactor.datacenter.util.FileUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
+import java.io.File;
 import java.io.SequenceInputStream;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.data.relational.core.query.Criteria.where;
 import static org.springframework.data.relational.core.query.Query.query;
@@ -230,8 +232,6 @@ public class TemplateServiceImpl implements TemplateService {
 
     private Mono<Void> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
-        List<Pair<Map<String, Object>, Throwable>> errMap = new ArrayList<>();
-        Queue<Pair<Map<String, Object>, Throwable>> errQueue = new ArrayBlockingQueue<>(100);
         Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
                 .doOnNext(rowData -> {
                     log.info("当前数据:[{}]", JSON.toJSONString(rowData));
@@ -242,7 +242,7 @@ public class TemplateServiceImpl implements TemplateService {
         Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
 
         SubscribeErrorHolder errorHolder = SubscribeErrorHolder.build();
-        errorHolder.subscribeError(errFlux);
+        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()));
         // 如果是批量的则拆分`
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())
@@ -276,6 +276,14 @@ public class TemplateServiceImpl implements TemplateService {
                     });
         }
         return Mono.when(rpcFlux, errFlux);
+    }
+
+    private String getErrorFileNameFromUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return "未命名" + System.currentTimeMillis() + ".xlsx";
+        }
+        String fileName = FileUtils.getFileNameNoExtension(url);
+        return fileName + System.currentTimeMillis() + ".xlsx";
     }
 
     private Mono<?> preProcess(TemplateTaskDO task, TemplateModel templateModel) {

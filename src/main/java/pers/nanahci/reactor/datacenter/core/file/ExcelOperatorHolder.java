@@ -13,7 +13,13 @@ import java.util.stream.Collectors;
 public class ExcelOperatorHolder {
 
 
+    private final String tempPath;
+
     private final String path;
+
+    private final String bucket;
+
+    private final String fileName;
 
     private ExcelWriterBuilder excelWriterBuilder;
 
@@ -22,16 +28,16 @@ public class ExcelOperatorHolder {
     private WriteSheet writeSheet;
 
 
-    private ExcelOperatorHolder(String path) {
-        this.path = path;
+    public ExcelOperatorHolder(String tempPath, String fileName,
+                               String bucketPath,String bucket) {
+        this.tempPath = tempPath;
+        this.fileName = fileName;
+        this.path = bucketPath;
+        this.bucket = bucket;
     }
 
-    public static ExcelOperatorHolder build(String path) {
-        return new ExcelOperatorHolder(path);
-    }
 
-    public void write(List<Pair<Map<String, Object>, Throwable>> errData,
-                      FileStoreType type) {
+    public void write(List<Pair<Map<String, Object>, Throwable>> errData) {
         if (Objects.isNull(excelWriterBuilder)) {
             init(buildHead(errData.get(0).getKey()));
         }
@@ -43,6 +49,17 @@ public class ExcelOperatorHolder {
             values.add(err.getMessage());
             return values;
         }).collect(Collectors.toList()), writeSheet);
+
+
+
+    }
+
+    public void upload(FileStoreType type) {
+        if (Objects.equals(type, FileStoreType.LOCAL)) {
+            return;
+        }
+        FileClient fileClient = FileClientFactory.get(type);
+        fileClient.uploadLocalFile(tempPath, path, "excel");
     }
 
     public void finish() {

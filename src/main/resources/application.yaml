@@ -30,4 +30,6 @@ spring:
     username: root
     password: 123456
     name: data-center
+s3:
+  enable: true
 

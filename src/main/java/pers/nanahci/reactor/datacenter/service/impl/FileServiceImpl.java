@@ -33,4 +33,10 @@ public class FileServiceImpl implements FileService {
         return path;
     }
 
+    @Override
+    public String uploadLocalFile(String path, FileStoreType type) {
+        FileClient fileClient = FileClientFactory.get(type);
+        fileClient.upload(ins, path);
+        return path;
+    }
 }

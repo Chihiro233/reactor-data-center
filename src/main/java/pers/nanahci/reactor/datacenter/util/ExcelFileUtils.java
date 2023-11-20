@@ -6,6 +6,7 @@ import com.alibaba.excel.event.AnalysisEventListener;
 import com.alibaba.excel.metadata.data.ReadCellData;
 import com.alibaba.excel.util.ConverterUtils;
 import lombok.extern.slf4j.Slf4j;
+import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileClient;
 import pers.nanahci.reactor.datacenter.core.file.FileClientFactory;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
@@ -53,7 +54,11 @@ public class ExcelFileUtils {
         });
 
 
+    }
 
+    public static ExcelOperatorHolder createOperatorHolder(String tempPath, String fileName,
+                                                           String path, String bucket) {
+        return new ExcelOperatorHolder(tempPath, fileName, path, bucket);
     }
 
 

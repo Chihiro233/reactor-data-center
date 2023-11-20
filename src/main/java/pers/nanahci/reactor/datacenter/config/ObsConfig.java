@@ -1,11 +1,18 @@
 package pers.nanahci.reactor.datacenter.config;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import pers.nanahci.reactor.datacenter.core.file.S3ClientConfig;
+import pers.nanahci.reactor.datacenter.core.file.S3FileClient;
 
-@Data
+@AutoConfiguration
 public class ObsConfig {
 
-    //private
+    @Bean
+    @ConditionalOnProperty(prefix = "s3.enable", value = "true")
+    public S3FileClient s3FileClient(S3ClientConfig config) {
+        return new S3FileClient(config);
+    }
 
 }
