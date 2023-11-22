@@ -31,5 +31,18 @@ spring:
     password: 123456
     name: data-center
 s3:
-  enable: true
+  config:
+    enable: true
+    type: tencent.cloud
+    access-key: AKID0xtlgaUL8Xq21zrdKxUuE7ubCg11xpJn
+    access-secret: a9gCXtANIC6ypcRISCwdFvW2SBrWDpJe
+    end-point: https://cos.ap-nanjing.myqcloud.com
+    bucket: reactor-batch-1304994440
+task:
+  err:
+    oss:
+      bucket: reactor-batch-1304994440
+      path: test/
+      temp-path: D:/code/proj/learn/reactor-data-center/src/main/resources/local/
+
 

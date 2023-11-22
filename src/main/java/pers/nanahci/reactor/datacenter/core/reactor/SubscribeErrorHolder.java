@@ -6,9 +6,12 @@ import org.springframework.stereotype.Component;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
+import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
+import pers.nanahci.reactor.datacenter.service.TemplateService;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import pers.nanahci.reactor.datacenter.util.SpringContextUtil;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
@@ -32,27 +35,31 @@ public class SubscribeErrorHolder {
 
     }
 
-    public void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux, String fileName) {
+    public void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux, String fileName, Long taskId) {
         flux.buffer(2)
                 .doOnNext(d -> {
                     log.info("收到错误消息");
                 })
                 .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_ERROR_EXECUTOR))
-                .doFinally(signalType -> {
-                    log.info("consumer error success");
-                    // need to judge signalType
-                    if (Objects.nonNull(excelOperatorHolder)) {
-                        excelOperatorHolder.finish();
-                        excelOperatorHolder.upload(FileStoreType.S3);
-                    }
-                })
-                .subscribe(data -> {
+                .flatMap(data -> Mono.defer(() -> {
                     if (excelOperatorHolder == null) {
                         BatchTaskConfig config = SpringContextUtil.getBean(BatchTaskConfig.class);
                         excelOperatorHolder = ExcelFileUtils.createOperatorHolder(config.getTempPath(), fileName, config.getPath(), config.getBucket());
                     }
                     excelOperatorHolder.write(data);
-                });
+                    return Mono.empty();
+                })).concatWith(Mono.defer(() -> {
+                    if (Objects.nonNull(excelOperatorHolder)) {
+                        excelOperatorHolder.finish();
+                        String errUrl = excelOperatorHolder.upload(FileStoreType.S3);
+                        log.info("errUrl:[{}]", errUrl);
+                        TemplateService ts = SpringContextUtil.getBean(TemplateService.class);
+                        return ts.saveErrFileUrl(taskId, errUrl);
+                    }
+                    return Mono.empty();
+                })).doFinally(signalType -> {
+                    excelOperatorHolder.finish();
+                }).subscribe();
     }
 
 

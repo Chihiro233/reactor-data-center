@@ -1,6 +1,7 @@
 package pers.nanahci.reactor.datacenter.util;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 
 public class FileUtils {
 
@@ -9,7 +10,11 @@ public class FileUtils {
         if (StringUtils.isBlank(url)) {
             return "";
         }
-        return StringUtils.substringAfterLast(url, "/");
+        if (SystemUtils.IS_OS_WINDOWS) {
+            return StringUtils.substringAfterLast(url, "\\");
+        } else {
+            return StringUtils.substringAfterLast(url, "/");
+        }
     }
 
     public static String getFileNameNoExtension(String url) {

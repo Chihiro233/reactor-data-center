@@ -4,10 +4,20 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.utils.URIUtils;
+import org.apache.http.client.utils.URLEncodedUtils;
+import org.springframework.beans.propertyeditors.URLEditor;
+import pers.nanahci.reactor.datacenter.core.common.EasyURL;
+import pers.nanahci.reactor.datacenter.util.URLUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class S3FileClient extends AbstractFileClient {
@@ -22,6 +32,7 @@ public class S3FileClient extends AbstractFileClient {
 
     public S3FileClient(S3ClientConfig config) {
         this.config = config;
+        init();
     }
 
 
@@ -49,7 +60,7 @@ public class S3FileClient extends AbstractFileClient {
     private String buildRegion(S3ClientConfig config) {
         String endPoint = config.getEndPoint();
         if (StringUtils.contains(endPoint, TX_ENDPOINT)) {
-            return StringUtils.substringAfter(endPoint, ".cos.")
+            return StringUtils.substringAfter(endPoint, "cos.")
                     .replaceAll("." + TX_ENDPOINT, ""); // 去除 Endpoint
         }
         if (StringUtils.contains(endPoint, ALI_ENDPOINT)) {
@@ -69,8 +80,8 @@ public class S3FileClient extends AbstractFileClient {
     }
 
     @Override
-    public String uploadLocalFile(String tempPath, String path, String type) {
-        File file = getFile(tempPath);
+    public String uploadLocalFile(String localPath, String path, String type) {
+        File file = getFile(localPath);
         if (!file.exists() || !file.isFile()) {
             throw new RuntimeException("路径不存在或者不是文件");
         }
@@ -85,15 +96,11 @@ public class S3FileClient extends AbstractFileClient {
                     .stream(inputStream, fileSize, -1) // 文件内容
                     .build());
             // 拼接返回路径
-            if (StringUtils.isBlank(config.getDomain())) {
-                return buildEndPoint(config) + "/" + path;
-            }
-            return config.getDomain() + "/" + path;
+            return buildFileUrl(path);
         } catch (Exception e) {
             log.info("[上传文件异常]", e);
         }
         return "";
-
     }
 
     @Override
@@ -104,5 +111,33 @@ public class S3FileClient extends AbstractFileClient {
     @Override
     public FileStoreType type() {
         return FileStoreType.S3;
+    }
+
+    private String buildFileUrl(String path) throws MalformedURLException {
+        switch (config.getType()) {
+            case S3CloudConstant.TX_CLOUD -> {
+                String baseUrl = getTencentCloudBaseUrl();
+                return EasyURL.from(baseUrl).concat(path).getEncodeUrl();
+            }
+            case S3CloudConstant.ALI_CLOUD -> {
+
+            }
+        }
+        return "";
+    }
+
+    public static void main(String[] args) {
+        String encode = URLEncoder.encode("https://reactor-batch-1304994440.cos.ap-nanjing.myqcloud.com/test/flux测试.xlsx");
+        System.out.println(encode);
+    }
+
+    private String getTencentCloudBaseUrl() {
+        if (StringUtils.isBlank(config.getDomain())) {
+            String baseUrl = buildEndPoint(config);
+            if (StringUtils.contains(baseUrl, "//cos.")) {
+                return baseUrl.replace("//cos", "//" + config.getBucket() + ".cos");
+            }
+        }
+        return config.getDomain();
     }
 }

@@ -9,7 +9,6 @@ import javafx.util.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.compress.utils.FileNameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.codehaus.groovy.jsr223.GroovyScriptEngineImpl;
 import org.redisson.api.RLockReactive;
@@ -53,10 +52,9 @@ import reactor.core.scheduler.Schedulers;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
-import java.io.File;
 import java.io.SequenceInputStream;
-import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -217,7 +215,7 @@ public class TemplateServiceImpl implements TemplateService {
     }
 
 
-    private Mono<Long> updateTaskStatus(TemplateTaskDO task, TaskStatusEnum taskStatus) {
+    public Mono<Long> updateTaskStatus(TemplateTaskDO task, TaskStatusEnum taskStatus) {
         return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                         Update.update("status", taskStatus.getValue()), TemplateTaskDO.class)
                 .filterWhen(uc -> {
@@ -227,8 +225,21 @@ public class TemplateServiceImpl implements TemplateService {
                     }
                     return Mono.just(true);
                 });
-
     }
+
+    @Override
+    public Mono<Long> saveErrFileUrl(Long taskId, String errFileUrl) {
+        return r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(taskId)),
+                        Update.update("errFileUrl", errFileUrl), TemplateTaskDO.class)
+                .filterWhen(uc -> {
+                    // update count
+                    if (uc == 0) {
+                        return Mono.error(new RuntimeException("更新失败"));
+                    }
+                    return Mono.just(true);
+                });
+    }
+
 
     private Mono<Void> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
@@ -242,7 +253,7 @@ public class TemplateServiceImpl implements TemplateService {
         Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
 
         SubscribeErrorHolder errorHolder = SubscribeErrorHolder.build();
-        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()));
+        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()), task.getId());
         // 如果是批量的则拆分`
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())

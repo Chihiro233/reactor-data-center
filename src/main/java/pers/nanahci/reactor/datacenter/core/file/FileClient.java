@@ -11,7 +11,7 @@ public interface FileClient {
 
     void upload(byte[] data, long position, String url);
 
-    String uploadLocalFile(String tempPath, String path, String type);
+    String uploadLocalFile(String localPath, String path, String type);
 
     void upload(InputStream ins, String url);
 

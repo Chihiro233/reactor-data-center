@@ -5,6 +5,9 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import javafx.util.Pair;
+import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
+import pers.nanahci.reactor.datacenter.core.common.EasyURL;
+import pers.nanahci.reactor.datacenter.util.PathUtils;
 
 import java.io.File;
 import java.util.*;
@@ -29,7 +32,7 @@ public class ExcelOperatorHolder {
 
 
     public ExcelOperatorHolder(String tempPath, String fileName,
-                               String bucketPath,String bucket) {
+                               String bucketPath, String bucket) {
         this.tempPath = tempPath;
         this.fileName = fileName;
         this.path = bucketPath;
@@ -51,15 +54,15 @@ public class ExcelOperatorHolder {
         }).collect(Collectors.toList()), writeSheet);
 
 
-
     }
 
-    public void upload(FileStoreType type) {
+    public String upload(FileStoreType type) {
         if (Objects.equals(type, FileStoreType.LOCAL)) {
-            return;
+            return "";
         }
         FileClient fileClient = FileClientFactory.get(type);
-        fileClient.uploadLocalFile(tempPath, path, "excel");
+        return fileClient.uploadLocalFile(PathUtils.concat(tempPath, fileName),
+                PathUtils.concat(path,fileName), ContentTypes.EXCEL);
     }
 
     public void finish() {
@@ -67,7 +70,7 @@ public class ExcelOperatorHolder {
     }
 
     private void init(List<List<String>> head) {
-        excelWriterBuilder = EasyExcel.write(new File(path + "err.xlsx"))
+        excelWriterBuilder = EasyExcel.write(new File(tempPath + fileName))
                 .head(head);
         writeSheet = EasyExcel.writerSheet("失败结果").build();
         excelWriter = excelWriterBuilder.build();

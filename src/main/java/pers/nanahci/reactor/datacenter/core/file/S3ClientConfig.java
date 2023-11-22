@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Configuration;
 @Data
 public class S3ClientConfig {
 
+    private boolean enable;
+
+    private String type;
 
     private String endPoint;
 

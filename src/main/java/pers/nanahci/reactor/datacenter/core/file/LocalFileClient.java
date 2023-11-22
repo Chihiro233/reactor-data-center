@@ -1,15 +1,12 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import com.qcloud.cos.model.PutObjectRequest;
-import io.netty.channel.DefaultFileRegion;
-import io.netty.channel.FileRegion;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
-import java.io.*;
-import java.nio.channels.FileChannel;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 @Component
 @Slf4j
@@ -37,10 +34,7 @@ public class LocalFileClient extends AbstractFileClient {
         }
     }
 
-    @Override
-    public String uploadLocalFile(String path) {
-
-    }
+    
 
     public void upload(InputStream ins, String url) {
         try {
@@ -51,6 +45,10 @@ public class LocalFileClient extends AbstractFileClient {
         }
     }
 
+    @Override
+    public String uploadLocalFile(String tempPath, String path, String type) {
+        return null;
+    }
 
     @Override
     public FileStoreType type() {
