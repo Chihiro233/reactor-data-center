@@ -20,21 +20,21 @@ public class TemplateDO {
 
     private Integer rpcType;
     /**
-     * 请求方式（1-GET，2-POST）
-     */
-    private Integer methodType;
-    /**
      * 执行方式（1-逐行调用，2-批量调用）
      */
     private Integer executeType;
 
     private Integer batchSize;
     /**
-     * 是否需要执行文件（0-否，1-是）
+     * 0-none  1-retry
      */
-    private Integer needExeFile;
+    private Integer failStrategy;
+
+    private Integer maxRetry;
 
     private String config;
+
+    private Long timeoutLimit;
 
 
     @Data
@@ -55,7 +55,6 @@ public class TemplateDO {
         private Integer scriptType;
 
         private String headList;
-
 
     }
 

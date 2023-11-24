@@ -15,7 +15,7 @@ public class XxlJobHandler {
     private TemplateService templateService;
 
     @XxlJob("taskExecutorJob")
-    public void execute() {
+    public void taskExecutorJob() {
         log.info("开始执行未完成的job任务");
         templateService
                 .getUnComplete()
@@ -24,6 +24,18 @@ public class XxlJobHandler {
                     return Mono.empty();
                 }))
                 .subscribe(model -> templateService.execute(model));
+    }
+
+    @XxlJob("timeoutTaskJob")
+    public void timeoutTaskJob() {
+        log.info("开始搜索超时job任务");
+        templateService
+                .getTimeoutTask()
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("没有未完成的任务");
+                    return Mono.empty();
+                }))
+                .subscribe(model -> templateService.resolveTimeoutTask(model));
     }
 
 }

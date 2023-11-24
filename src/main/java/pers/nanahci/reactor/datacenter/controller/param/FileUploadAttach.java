@@ -16,6 +16,8 @@ public class FileUploadAttach {
 
     private String bizInfo;
 
+    private Long contentLength;
+
 
 
 }

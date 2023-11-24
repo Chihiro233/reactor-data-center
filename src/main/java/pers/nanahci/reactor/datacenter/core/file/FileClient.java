@@ -1,6 +1,6 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import reactor.core.publisher.Mono;
+import pers.nanahci.reactor.datacenter.service.UploadSetting;
 
 import java.io.InputStream;
 
@@ -13,7 +13,7 @@ public interface FileClient {
 
     String uploadLocalFile(String localPath, String path, String type);
 
-    void upload(InputStream ins, String url);
+    String upload(InputStream ins, UploadSetting setting);
 
 
     FileStoreType type();

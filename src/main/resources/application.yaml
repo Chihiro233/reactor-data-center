@@ -39,10 +39,11 @@ s3:
     end-point: https://cos.ap-nanjing.myqcloud.com
     bucket: reactor-batch-1304994440
 task:
-  err:
-    oss:
-      bucket: reactor-batch-1304994440
-      path: test/
-      temp-path: D:/code/proj/learn/reactor-data-center/src/main/resources/local/
+  oss:
+    bucket: reactor-batch-1304994440
+    err-path: upload/err
+    path: upload/task
+    temp-path: D:/code/proj/learn/reactor-data-center/src/main/resources/local/
+
 
 

@@ -44,7 +44,7 @@ public class SubscribeErrorHolder {
                 .flatMap(data -> Mono.defer(() -> {
                     if (excelOperatorHolder == null) {
                         BatchTaskConfig config = SpringContextUtil.getBean(BatchTaskConfig.class);
-                        excelOperatorHolder = ExcelFileUtils.createOperatorHolder(config.getTempPath(), fileName, config.getPath(), config.getBucket());
+                        excelOperatorHolder = ExcelFileUtils.createOperatorHolder(config.getTempPath(), fileName, config.getErrPath(), config.getBucket());
                     }
                     excelOperatorHolder.write(data);
                     return Mono.empty();

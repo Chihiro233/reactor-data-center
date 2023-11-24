@@ -5,6 +5,8 @@ import lombok.experimental.Accessors;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.time.LocalDateTime;
+
 @Data
 @Accessors(chain = true)
 @Table("template_task")
@@ -34,8 +36,21 @@ public class TemplateTaskDO {
      */
     private String bizInfo;
     /**
-     * task status. 0 - no start 1-processing 2-complete
+     * task status.  0 - no start 1-processing 2-complete
      */
     private Integer status;
+    /**
+     * retry num when execute timeout
+     */
+    private Integer retryNum;
+
+    private LocalDateTime createTime;
+
+    private LocalDateTime updateTime;
+
+    private LocalDateTime lastStartTime;
+
+    private LocalDateTime endTime;
+
 
 }

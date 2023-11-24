@@ -1,23 +1,19 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
+import com.alibaba.fastjson2.JSON;
 import io.minio.MinioClient;
+import io.minio.ObjectWriteResponse;
 import io.minio.PutObjectArgs;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.utils.URIUtils;
-import org.apache.http.client.utils.URLEncodedUtils;
-import org.springframework.beans.propertyeditors.URLEditor;
 import pers.nanahci.reactor.datacenter.core.common.EasyURL;
-import pers.nanahci.reactor.datacenter.util.URLUtils;
+import pers.nanahci.reactor.datacenter.service.UploadSetting;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class S3FileClient extends AbstractFileClient {
@@ -86,26 +82,22 @@ public class S3FileClient extends AbstractFileClient {
             throw new RuntimeException("路径不存在或者不是文件");
         }
         long fileSize = file.length();
+        UploadSetting setting = new UploadSetting()
+                .setBucket(config.getBucket())
+                .setFileType(type)
+                .setFileLength(fileSize)
+                .setPath(path);
         try {
-            FileInputStream inputStream = new FileInputStream(file);
-            // 执行上传
-            minioClient.putObject(PutObjectArgs.builder()
-                    .bucket(config.getBucket()) // bucket 必须传递
-                    .contentType(type)
-                    .object(path) // 相对路径作为 key
-                    .stream(inputStream, fileSize, -1) // 文件内容
-                    .build());
-            // 拼接返回路径
-            return buildFileUrl(path);
+            FileInputStream input = new FileInputStream(file);
+            return doPut(setting, input);
         } catch (Exception e) {
-            log.info("[上传文件异常]", e);
+            throw new RuntimeException("上传文件异常");
         }
-        return "";
     }
 
     @Override
-    public void upload(InputStream ins, String url) {
-
+    public String upload(InputStream ins, UploadSetting setting) {
+        return doPut(setting, ins);
     }
 
     @Override
@@ -129,6 +121,28 @@ public class S3FileClient extends AbstractFileClient {
     public static void main(String[] args) {
         String encode = URLEncoder.encode("https://reactor-batch-1304994440.cos.ap-nanjing.myqcloud.com/test/flux测试.xlsx");
         System.out.println(encode);
+    }
+
+    private String doPut(UploadSetting setting, InputStream input) {
+        try {
+            PutObjectArgs.Builder putArgsBuilder = PutObjectArgs.builder()
+                    .bucket(config.getBucket()) // bucket 必须传递
+                    .contentType(setting.getFileType())
+                    .object(setting.getPath());// 相对路径作为 key
+            if (setting.getFileLength() != null) {
+                putArgsBuilder.stream(input, setting.getFileLength(), -1); // 文件内容
+            } else {
+                putArgsBuilder.stream(input, -1, 20 * 1024 * 1024);
+            }
+            // 执行上传
+            ObjectWriteResponse objectWriteResponse = minioClient.putObject(putArgsBuilder.build());
+            log.info("上传oss收到的参数:[{}]", JSON.toJSONString(objectWriteResponse));
+            // 拼接返回路径
+            return buildFileUrl(setting.getPath());
+        } catch (Exception e) {
+            log.info("[上传文件异常]", e);
+        }
+        return "";
     }
 
     private String getTencentCloudBaseUrl() {

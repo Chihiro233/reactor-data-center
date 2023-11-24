@@ -5,11 +5,17 @@ import lombok.Getter;
 @Getter
 public enum TaskStatusEnum {
 
-    UN_STARTER(0, "未开始"),
+    UN_START_RETRY(-1, "未开始, 需要重试"),
+
+    UN_START(0, "未开始"),
 
     WORKING(1, "进行中"),
 
-    COMPLETE(2, "结束");
+    COMPLETE(2, "完成"),
+
+    TERMINAL(3, "结束"),
+
+    FAIL(4, "执行异常");
 
     private final Integer value;
 

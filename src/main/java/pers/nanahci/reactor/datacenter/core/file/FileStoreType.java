@@ -4,7 +4,9 @@ public enum FileStoreType {
 
     LOCAL,
 
-    S3
+    S3,
+
+    FTP
 
     ;
 

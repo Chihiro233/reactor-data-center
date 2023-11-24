@@ -25,12 +25,14 @@ public class FileUploadController {
     public Mono<Ret<String>> upload(@RequestPart("file") FilePart file,
                                     @RequestPart("title") String title,
                                     @RequestPart("bizInfo") String bizInfo,
-                                    @RequestPart("batchNo") String batchNo) {
+                                    @RequestPart("batchNo") String batchNo,
+                                    @RequestHeader("Content-length") Long contentLength) {
         // 上传文件
         FileUploadAttach attach = new FileUploadAttach()
                 .setTitle(title)
                 .setBizInfo(bizInfo)
-                .setBatchNo(batchNo);
+                .setBatchNo(batchNo)
+                .setContentLength(contentLength);
         return Ret.success(templateService.commit(file, attach));
     }
 
