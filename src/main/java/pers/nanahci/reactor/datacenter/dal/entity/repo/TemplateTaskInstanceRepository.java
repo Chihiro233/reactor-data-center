@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 public interface TemplateTaskInstanceRepository extends R2dbcRepository<TemplateTaskInstanceDO, Long> {
 
-    @Query("select * from template_task_instance where task_id = :taskId order by begin_time asc limit 1")
+    @Query("select * from template_task_instance where task_id = :taskId order by start_time desc limit 1")
     Mono<TemplateTaskInstanceDO> lastOne(Long taskId);
 
     @Modifying

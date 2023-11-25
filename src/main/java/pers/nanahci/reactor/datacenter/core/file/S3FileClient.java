@@ -1,13 +1,11 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
 import com.alibaba.fastjson2.JSON;
-import io.minio.MinioClient;
-import io.minio.ObjectWriteResponse;
-import io.minio.PutObjectArgs;
+import io.minio.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import pers.nanahci.reactor.datacenter.core.common.EasyURL;
-import pers.nanahci.reactor.datacenter.service.UploadSetting;
+import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -22,7 +20,7 @@ public class S3FileClient extends AbstractFileClient {
     private static final String TX_ENDPOINT = "myqcloud.com";
 
 
-    private S3ClientConfig config;
+    private final S3ClientConfig config;
 
     private MinioClient minioClient;
 
@@ -67,7 +65,13 @@ public class S3FileClient extends AbstractFileClient {
 
     @Override
     public InputStream getInputStream(String url) {
-        return null;
+        EasyURL urlObj = EasyURL.from(url);
+        S3Setting setting = new S3Setting();
+
+        setting.setBucket(config.getBucket())
+                .setPath(urlObj.getPath());
+
+        return doGet(setting);
     }
 
     @Override
@@ -82,7 +86,7 @@ public class S3FileClient extends AbstractFileClient {
             throw new RuntimeException("路径不存在或者不是文件");
         }
         long fileSize = file.length();
-        UploadSetting setting = new UploadSetting()
+        S3Setting setting = new S3Setting()
                 .setBucket(config.getBucket())
                 .setFileType(type)
                 .setFileLength(fileSize)
@@ -96,7 +100,7 @@ public class S3FileClient extends AbstractFileClient {
     }
 
     @Override
-    public String upload(InputStream ins, UploadSetting setting) {
+    public String upload(InputStream ins, S3Setting setting) {
         return doPut(setting, ins);
     }
 
@@ -118,12 +122,21 @@ public class S3FileClient extends AbstractFileClient {
         return "";
     }
 
-    public static void main(String[] args) {
-        String encode = URLEncoder.encode("https://reactor-batch-1304994440.cos.ap-nanjing.myqcloud.com/test/flux测试.xlsx");
-        System.out.println(encode);
+
+    private InputStream doGet(S3Setting setting) {
+        GetObjectArgs getObjectArgs = GetObjectArgs.builder()
+                .bucket(setting.getBucket())
+                .region(buildRegion(config))
+                .object(setting.getPath()).build();
+
+        try {
+            return minioClient.getObject(getObjectArgs);
+        } catch (Exception e) {
+            throw new RuntimeException("下载文件异常");
+        }
     }
 
-    private String doPut(UploadSetting setting, InputStream input) {
+    private String doPut(S3Setting setting, InputStream input) {
         try {
             PutObjectArgs.Builder putArgsBuilder = PutObjectArgs.builder()
                     .bucket(config.getBucket()) // bucket 必须传递
@@ -135,8 +148,7 @@ public class S3FileClient extends AbstractFileClient {
                 putArgsBuilder.stream(input, -1, 20 * 1024 * 1024);
             }
             // 执行上传
-            ObjectWriteResponse objectWriteResponse = minioClient.putObject(putArgsBuilder.build());
-            log.info("上传oss收到的参数:[{}]", JSON.toJSONString(objectWriteResponse));
+            minioClient.putObject(putArgsBuilder.build());
             // 拼接返回路径
             return buildFileUrl(setting.getPath());
         } catch (Exception e) {

@@ -7,7 +7,7 @@ import pers.nanahci.reactor.datacenter.core.file.FileClient;
 import pers.nanahci.reactor.datacenter.core.file.FileClientFactory;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.service.FileService;
-import pers.nanahci.reactor.datacenter.service.UploadSetting;
+import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.InputStream;
 
@@ -16,7 +16,7 @@ import java.io.InputStream;
 public class FileServiceImpl implements FileService {
 
     @Override
-    public String upload(InputStream ins, UploadSetting setting, FileStoreType type) {
+    public String upload(InputStream ins, S3Setting setting, FileStoreType type) {
         FileClient fileClient = FileClientFactory.get(type);
         return fileClient.upload(ins, setting);
     }

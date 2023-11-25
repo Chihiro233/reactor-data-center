@@ -46,8 +46,8 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandl
 import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import pers.nanahci.reactor.datacenter.service.FileService;
+import pers.nanahci.reactor.datacenter.service.S3Setting;
 import pers.nanahci.reactor.datacenter.service.TemplateService;
-import pers.nanahci.reactor.datacenter.service.UploadSetting;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import pers.nanahci.reactor.datacenter.util.FileUtils;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
@@ -215,7 +215,7 @@ public class TemplateServiceImpl implements TemplateService {
                         Flux<DataBuffer> content = file.content();
                         return content.map(DataBuffer::asInputStream).reduce(SequenceInputStream::new)
                                 .flatMap(ins -> Mono.fromSupplier(() -> {
-                                    UploadSetting setting = new UploadSetting()
+                                    S3Setting setting = new S3Setting()
                                             .setPath(PathUtils.concat(batchTaskConfig.getPath(), file.filename()))
                                             .setFileType(ContentTypes.EXCEL)
                                             .setBucket(batchTaskConfig.getBucket());
@@ -353,7 +353,7 @@ public class TemplateServiceImpl implements TemplateService {
     private Mono<?> startTask(TemplateTaskDO task) {
         return transactionalOperator.transactional(r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                         Update.update("status", TaskStatusEnum.WORKING.getValue())
-                                .set("last_begin_time", LocalDateTime.now()), TemplateTaskDO.class)
+                                .set("last_start_time", LocalDateTime.now()), TemplateTaskDO.class)
                 .filterWhen(uc -> {
                     // update count
                     if (uc == 0) {
@@ -392,7 +392,7 @@ public class TemplateServiceImpl implements TemplateService {
 
     private Mono<Integer> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
         TemplateDO templateDO = templateModel.getTemplateDO();
-        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.LOCAL)
+        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.S3)
                 .doOnNext(rowData -> {
                     log.info("当前数据:[{}]", JSON.toJSONString(rowData));
                 });
@@ -438,7 +438,9 @@ public class TemplateServiceImpl implements TemplateService {
                         errSink.tryEmitComplete();
                     });
         }
-        return Mono.when(rpcFlux, errFlux).thenReturn(ati.get());
+        return Mono.when(rpcFlux, errFlux).then(
+                Mono.fromSupplier(ati::get)
+        );
     }
 
 
@@ -460,7 +462,7 @@ public class TemplateServiceImpl implements TemplateService {
         // 查出最新的一条, 没有则插入
         switch (operation) {
             case INSERT -> {
-                log.setBeginTime(LocalDateTime.now());
+                log.setStartTime(LocalDateTime.now());
                 return r2dbcEntityTemplate.insert(log);
             }
             case COMPLETE -> {

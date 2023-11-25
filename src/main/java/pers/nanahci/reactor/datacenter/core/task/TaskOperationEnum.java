@@ -6,7 +6,7 @@ public enum TaskOperationEnum {
 
     COMPLETE,
 
-    FAIL;
+    FAIL
 
 
 }

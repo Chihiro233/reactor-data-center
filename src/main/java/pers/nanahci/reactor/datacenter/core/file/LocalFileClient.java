@@ -3,7 +3,7 @@ package pers.nanahci.reactor.datacenter.core.file;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
-import pers.nanahci.reactor.datacenter.service.UploadSetting;
+import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,7 +47,7 @@ public class LocalFileClient extends AbstractFileClient {
     }
 
     @Override
-    public String upload(InputStream ins, UploadSetting setting) {
+    public String upload(InputStream ins, S3Setting setting) {
         return null;
     }
 

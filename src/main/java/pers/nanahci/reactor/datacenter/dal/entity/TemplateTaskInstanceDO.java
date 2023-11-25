@@ -17,7 +17,7 @@ public class TemplateTaskInstanceDO {
 
     private Integer errRows;
 
-    private LocalDateTime beginTime;
+    private LocalDateTime startTime;
 
     private LocalDateTime endTime;
 

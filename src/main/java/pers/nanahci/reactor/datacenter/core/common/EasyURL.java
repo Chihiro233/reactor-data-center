@@ -67,7 +67,7 @@ public class EasyURL {
                 encodePathBuilder.append("/");
             }
         }
-        return domain + "/" + encodePathBuilder.toString();
+        return domain + "/" + encodePathBuilder;
     }
 
 }

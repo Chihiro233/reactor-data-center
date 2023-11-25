@@ -8,7 +8,7 @@ import java.io.InputStream;
 public interface FileService {
 
 
-    String upload(InputStream ins, UploadSetting setting, FileStoreType fileStoreType);
+    String upload(InputStream ins, S3Setting setting, FileStoreType fileStoreType);
 
     String uploadLocalFile(String path, FileStoreType fileStoreType);
 

@@ -1,6 +1,6 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import pers.nanahci.reactor.datacenter.service.UploadSetting;
+import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.InputStream;
 
@@ -13,7 +13,7 @@ public interface FileClient {
 
     String uploadLocalFile(String localPath, String path, String type);
 
-    String upload(InputStream ins, UploadSetting setting);
+    String upload(InputStream ins, S3Setting setting);
 
 
     FileStoreType type();

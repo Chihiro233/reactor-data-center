@@ -10,7 +10,7 @@ public class FileUtils {
         if (StringUtils.isBlank(url)) {
             return "";
         }
-        if (SystemUtils.IS_OS_WINDOWS) {
+        if (!StringUtils.startsWith(url, "http") && (url.contains("\\")) && SystemUtils.IS_OS_WINDOWS) {
             return StringUtils.substringAfterLast(url, "\\");
         } else {
             return StringUtils.substringAfterLast(url, "/");
