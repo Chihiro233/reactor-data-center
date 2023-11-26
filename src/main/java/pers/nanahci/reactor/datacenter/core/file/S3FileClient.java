@@ -1,6 +1,8 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import io.minio.*;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import pers.nanahci.reactor.datacenter.core.common.EasyURL;
@@ -63,17 +65,12 @@ public class S3FileClient extends AbstractFileClient {
     @Override
     public InputStream getInputStream(String url) {
         EasyURL urlObj = EasyURL.from(url);
-        S3Setting setting = new S3Setting();
+        AccessSetting setting = new AccessSetting();
 
         setting.setBucket(config.getBucket())
                 .setPath(urlObj.getPath());
 
         return doGet(setting);
-    }
-
-    @Override
-    public void upload(byte[] data, long position, String url) {
-
     }
 
     @Override
@@ -83,7 +80,7 @@ public class S3FileClient extends AbstractFileClient {
             throw new RuntimeException("路径不存在或者不是文件");
         }
         long fileSize = file.length();
-        S3Setting setting = new S3Setting()
+        AccessSetting setting = new AccessSetting()
                 .setBucket(config.getBucket())
                 .setFileType(type)
                 .setFileLength(fileSize)
@@ -97,7 +94,7 @@ public class S3FileClient extends AbstractFileClient {
     }
 
     @Override
-    public String upload(InputStream ins, S3Setting setting) {
+    public String upload(InputStream ins, AccessSetting setting) {
         return doPut(setting, ins);
     }
 
@@ -120,7 +117,7 @@ public class S3FileClient extends AbstractFileClient {
     }
 
 
-    private InputStream doGet(S3Setting setting) {
+    private InputStream doGet(AccessSetting setting) {
         GetObjectArgs getObjectArgs = GetObjectArgs.builder()
                 .bucket(setting.getBucket())
                 .region(buildRegion(config))
@@ -133,7 +130,7 @@ public class S3FileClient extends AbstractFileClient {
         }
     }
 
-    private String doPut(S3Setting setting, InputStream input) {
+    private String doPut(AccessSetting setting, InputStream input) {
         try {
             PutObjectArgs.Builder putArgsBuilder = PutObjectArgs.builder()
                     .bucket(config.getBucket()) // bucket 必须传递

@@ -46,7 +46,7 @@ import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandl
 import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import pers.nanahci.reactor.datacenter.service.file.FileService;
-import pers.nanahci.reactor.datacenter.core.file.S3Setting;
+import pers.nanahci.reactor.datacenter.core.file.AccessSetting;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import pers.nanahci.reactor.datacenter.util.FileUtils;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
@@ -214,7 +214,7 @@ public class TemplateServiceImpl implements TemplateService {
                         Flux<DataBuffer> content = file.content();
                         return content.map(DataBuffer::asInputStream).reduce(SequenceInputStream::new)
                                 .flatMap(ins -> Mono.fromSupplier(() -> {
-                                    S3Setting setting = new S3Setting()
+                                    AccessSetting setting = new AccessSetting()
                                             .setPath(PathUtils.concat(batchTaskConfig.getPath(), file.filename()))
                                             .setFileType(ContentTypes.EXCEL)
                                             .setBucket(batchTaskConfig.getBucket());

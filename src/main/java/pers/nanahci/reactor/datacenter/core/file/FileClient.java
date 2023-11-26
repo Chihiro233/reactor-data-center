@@ -7,11 +7,10 @@ public interface FileClient {
 
     InputStream getInputStream(String url);
 
-    void upload(byte[] data, long position, String url);
 
     String uploadLocalFile(String localPath, String path, String type);
 
-    String upload(InputStream ins, S3Setting setting);
+    String upload(InputStream ins, AccessSetting setting);
 
 
     FileStoreType type();

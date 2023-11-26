@@ -31,7 +31,7 @@ public class SubscribeErrorHolder {
     }
 
     public void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux, String fileName, Long taskId) {
-        flux.buffer(2)
+        flux.buffer(1000)
                 .doOnNext(d -> {
                     log.info("收到错误消息");
                 })

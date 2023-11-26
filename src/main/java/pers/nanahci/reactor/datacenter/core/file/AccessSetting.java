@@ -5,7 +5,7 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class S3Setting {
+public class AccessSetting {
 
     private String bucket;
 

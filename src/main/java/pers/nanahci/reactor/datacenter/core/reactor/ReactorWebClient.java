@@ -24,7 +24,6 @@ public class ReactorWebClient {
 
         return client.get()
                 .uri(buildUrl(serverName, uri))
-                //.headers(httpHeaders -> WebFrameworkUtils.setTenantIdHeader(tenantId, httpHeaders)) // 设置租户的 Header
                 .retrieve()
                 .bodyToMono(respType)
                 .subscribeOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR));

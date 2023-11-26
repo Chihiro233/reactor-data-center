@@ -1,12 +1,11 @@
 package pers.nanahci.reactor.datacenter.service.file;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import pers.nanahci.reactor.datacenter.core.file.FileClient;
 import pers.nanahci.reactor.datacenter.core.file.FileClientFactory;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
-import pers.nanahci.reactor.datacenter.core.file.S3Setting;
+import pers.nanahci.reactor.datacenter.core.file.AccessSetting;
 
 import java.io.InputStream;
 
@@ -15,19 +14,10 @@ import java.io.InputStream;
 public class FileServiceImpl implements FileService {
 
     @Override
-    public String upload(InputStream ins, S3Setting setting, FileStoreType type) {
+    public String upload(InputStream ins, AccessSetting setting, FileStoreType type) {
         FileClient fileClient = FileClientFactory.get(type);
         return fileClient.upload(ins, setting);
     }
 
-    @Override
-    public String uploadLocalFile(String path, FileStoreType type) {
 
-        return path;
-    }
-
-    @Override
-    public String optUpload(FilePart filePart, FileStoreType fileStoreType) {
-        return null;
-    }
 }

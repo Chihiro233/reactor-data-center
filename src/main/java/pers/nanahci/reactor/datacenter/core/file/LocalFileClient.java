@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.channels.FileChannel;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 @Component
 @Slf4j
@@ -24,17 +27,6 @@ public class LocalFileClient extends AbstractFileClient {
         }
     }
 
-    @Override
-    public void upload(byte[] data, long position, String url) {
-        try {
-            File file = new File(url);
-            FileUtils.writeByteArrayToFile(file, data, true);
-        } catch (Exception e) {
-            log.error("file upload failed", e);
-        }
-    }
-
-    
 
     public void upload(InputStream ins, String url) {
         try {
@@ -46,13 +38,44 @@ public class LocalFileClient extends AbstractFileClient {
     }
 
     @Override
-    public String upload(InputStream ins, S3Setting setting) {
-        return null;
+    public String upload(InputStream ins, AccessSetting setting) {
+        upload(ins, setting.getPath());
+        return setting.getPath();
     }
 
     @Override
     public String uploadLocalFile(String tempPath, String path, String type) {
-        return null;
+        FileChannel readChannel = null;
+        FileChannel writeChanel = null;
+        try {
+            readChannel = FileChannel.open(Paths.get(tempPath), StandardOpenOption.READ);
+            long size = readChannel.size();
+            long position = readChannel.position();
+
+            writeChanel = FileChannel.open(Paths.get(path), StandardOpenOption.WRITE);
+            readChannel.transferTo(position, size, writeChanel);
+
+        } catch (Exception e) {
+            log.error("0拷贝通道异常:", e);
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (readChannel != null) {
+                    readChannel.close();
+                }
+
+            } catch (Exception e) {
+                log.error("关闭channel异常", e);
+            }
+            try {
+                if (writeChanel != null) {
+                    writeChanel.close();
+                }
+            } catch (Exception e) {
+                log.error("关闭write channel异常", e);
+            }
+        }
+        return path;
     }
 
     @Override
