@@ -1,11 +1,10 @@
-package pers.nanahci.reactor.datacenter.service;
+package pers.nanahci.reactor.datacenter.service.task;
 
 import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.web.multipart.MultipartFile;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
-import pers.nanahci.reactor.datacenter.enums.TaskStatusEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskStatusEnum;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

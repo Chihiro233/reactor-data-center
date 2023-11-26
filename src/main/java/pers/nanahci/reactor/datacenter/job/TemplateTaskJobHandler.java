@@ -4,12 +4,12 @@ import com.xxl.job.core.handler.annotation.XxlJob;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import pers.nanahci.reactor.datacenter.service.TemplateService;
+import pers.nanahci.reactor.datacenter.service.task.TemplateService;
 import reactor.core.publisher.Mono;
 
 @Component
 @Slf4j
-public class XxlJobHandler {
+public class TemplateTaskJobHandler {
 
     @Resource
     private TemplateService templateService;

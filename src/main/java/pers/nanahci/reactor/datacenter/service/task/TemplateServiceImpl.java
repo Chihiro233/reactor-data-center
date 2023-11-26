@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.service.impl;
+package pers.nanahci.reactor.datacenter.service.task;
 
 
 import com.alibaba.fastjson2.JSON;
@@ -28,10 +28,10 @@ import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
-import pers.nanahci.reactor.datacenter.core.reactor.ExecutorConstant;
+import pers.nanahci.reactor.datacenter.core.reactor.ReactorExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
 import pers.nanahci.reactor.datacenter.core.reactor.SubscribeErrorHolder;
-import pers.nanahci.reactor.datacenter.core.task.TaskOperationEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskOperationEnum;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskInstanceDO;
@@ -39,15 +39,14 @@ import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateRepository;
 import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateTaskInstanceRepository;
 import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateTaskRepository;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
-import pers.nanahci.reactor.datacenter.enums.ExecuteTypeEnum;
-import pers.nanahci.reactor.datacenter.enums.PlatformTypeEnum;
-import pers.nanahci.reactor.datacenter.enums.TaskStatusEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
+import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskStatusEnum;
 import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandler;
 import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
-import pers.nanahci.reactor.datacenter.service.FileService;
-import pers.nanahci.reactor.datacenter.service.S3Setting;
-import pers.nanahci.reactor.datacenter.service.TemplateService;
+import pers.nanahci.reactor.datacenter.service.file.FileService;
+import pers.nanahci.reactor.datacenter.core.file.S3Setting;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import pers.nanahci.reactor.datacenter.util.FileUtils;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
@@ -156,7 +155,7 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     public void execute(TemplateModel templateModel) {
         Flux.fromIterable(templateModel.getTaskList())
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
                     // try lock
                     if (templateModel.whetherRetry() && task.getRetryNum() >= templateModel.getMaxRetry()) {
@@ -290,7 +289,7 @@ public class TemplateServiceImpl implements TemplateService {
         // 1. reset task status and record the number of retry
         // 2. reset the task
         Flux.fromIterable(model.getTaskList())
-                .publishOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
                     // try lock
                     String key = "templateTask:batchId:" + task.getId();
@@ -410,7 +409,7 @@ public class TemplateServiceImpl implements TemplateService {
                     .flatMap(rowDataList ->
                             reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
                                             JSONArray.toJSONString(rowDataList), String.class)
-                                    .publishOn(Schedulers.fromExecutor(ExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
+                                    .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
                                     .onErrorResume((err) -> {
                                         if (CollectionUtils.isEmpty(rowDataList)) {
                                             return Mono.empty();

@@ -1,7 +1,5 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import pers.nanahci.reactor.datacenter.service.S3Setting;
-
 import java.io.InputStream;
 
 public interface FileClient {

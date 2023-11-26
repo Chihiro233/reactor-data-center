@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.config;
+package pers.nanahci.reactor.datacenter.job;
 
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;

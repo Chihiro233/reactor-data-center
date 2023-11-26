@@ -6,7 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public interface ExecutorConstant {
+public interface ReactorExecutorConstant {
 
     Executor DEFAULT_SUBSCRIBE_EXECUTOR =
             new ThreadPoolExecutor(10, 20, 20,

@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.core.task;
+package pers.nanahci.reactor.datacenter.service.task.constant;
 
 public enum TaskOperationEnum {
 

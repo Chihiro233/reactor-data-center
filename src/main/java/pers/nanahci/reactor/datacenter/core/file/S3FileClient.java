@@ -1,17 +1,14 @@
 package pers.nanahci.reactor.datacenter.core.file;
 
-import com.alibaba.fastjson2.JSON;
 import io.minio.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import pers.nanahci.reactor.datacenter.core.common.EasyURL;
-import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URLEncoder;
 
 @Slf4j
 public class S3FileClient extends AbstractFileClient {

@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.service;
+package pers.nanahci.reactor.datacenter.core.file;
 
 import lombok.Data;
 import lombok.experimental.Accessors;

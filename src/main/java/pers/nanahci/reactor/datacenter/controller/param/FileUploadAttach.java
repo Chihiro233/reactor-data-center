@@ -2,7 +2,6 @@ package pers.nanahci.reactor.datacenter.controller.param;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
-import pers.nanahci.reactor.datacenter.enums.RpcEnum;
 
 @Data
 @Accessors(chain = true)

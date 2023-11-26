@@ -27,7 +27,7 @@ public class ReactorWebClient {
                 //.headers(httpHeaders -> WebFrameworkUtils.setTenantIdHeader(tenantId, httpHeaders)) // 设置租户的 Header
                 .retrieve()
                 .bodyToMono(respType)
-                .subscribeOn(Schedulers.fromExecutor(ExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR));
+                .subscribeOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR));
     }
 
     public <T> Mono<T> post(String serverName, String uri, String body, Class<T> respType) {

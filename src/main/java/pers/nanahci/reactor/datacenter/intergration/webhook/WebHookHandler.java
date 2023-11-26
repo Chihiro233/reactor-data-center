@@ -1,6 +1,6 @@
 package pers.nanahci.reactor.datacenter.intergration.webhook;
 
-import pers.nanahci.reactor.datacenter.enums.PlatformTypeEnum;
+import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import reactor.core.publisher.Mono;
 

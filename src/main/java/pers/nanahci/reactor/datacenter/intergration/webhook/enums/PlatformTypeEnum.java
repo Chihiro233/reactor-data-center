@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.enums;
+package pers.nanahci.reactor.datacenter.intergration.webhook.enums;
 
 import lombok.Getter;
 

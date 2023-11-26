@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.core.task;
+package pers.nanahci.reactor.datacenter.service.task.constant;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

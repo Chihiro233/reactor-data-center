@@ -3,7 +3,6 @@ package pers.nanahci.reactor.datacenter.core.file;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
-import pers.nanahci.reactor.datacenter.service.S3Setting;
 
 import java.io.File;
 import java.io.FileInputStream;

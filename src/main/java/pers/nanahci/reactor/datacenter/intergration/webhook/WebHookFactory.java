@@ -1,9 +1,6 @@
 package pers.nanahci.reactor.datacenter.intergration.webhook;
 
-import jakarta.annotation.PostConstruct;
-import org.springframework.stereotype.Component;
-import pers.nanahci.reactor.datacenter.enums.PlatformTypeEnum;
-import pers.nanahci.reactor.datacenter.util.SpringContextUtil;
+import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
 
 import java.util.HashMap;
 import java.util.List;

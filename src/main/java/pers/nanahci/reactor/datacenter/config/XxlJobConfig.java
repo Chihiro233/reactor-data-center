@@ -1,13 +1,9 @@
 package pers.nanahci.reactor.datacenter.config;
 
 import com.xxl.job.core.executor.impl.XxlJobSpringExecutor;
-import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.web.WebProperties;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
+import pers.nanahci.reactor.datacenter.job.XxlJobProperties;
 
 @Configuration
 public class XxlJobConfig {
