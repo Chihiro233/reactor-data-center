@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.dal.entity.convert;
+package pers.nanahci.reactor.datacenter.dal.convert;
 
 import com.alibaba.fastjson2.JSON;
 import jakarta.persistence.AttributeConverter;

@@ -2,10 +2,8 @@ package pers.nanahci.reactor.datacenter.service.task;
 
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.xxl.job.core.context.XxlJobContext;
 import groovy.json.StringEscapeUtils;
-import javafx.util.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -23,36 +21,31 @@ import org.springframework.data.relational.core.query.Update;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
-import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.controller.param.FileUploadAttach;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
+import pers.nanahci.reactor.datacenter.core.file.AccessSetting;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
-import pers.nanahci.reactor.datacenter.core.reactor.SubscribeErrorHolder;
-import pers.nanahci.reactor.datacenter.service.task.constant.TaskOperationEnum;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskInstanceDO;
-import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateRepository;
-import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateTaskInstanceRepository;
-import pers.nanahci.reactor.datacenter.dal.entity.repo.TemplateTaskRepository;
+import pers.nanahci.reactor.datacenter.dal.repo.TemplateRepository;
+import pers.nanahci.reactor.datacenter.dal.repo.TemplateTaskInstanceRepository;
+import pers.nanahci.reactor.datacenter.dal.repo.TemplateTaskRepository;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
-import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
-import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
-import pers.nanahci.reactor.datacenter.service.task.constant.TaskStatusEnum;
 import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandler;
 import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
+import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
 import pers.nanahci.reactor.datacenter.intergration.webhook.param.lark.CommonWebHookDTO;
 import pers.nanahci.reactor.datacenter.service.file.FileService;
-import pers.nanahci.reactor.datacenter.core.file.AccessSetting;
-import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
-import pers.nanahci.reactor.datacenter.util.FileUtils;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskOperationEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskStatusEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskTypeRecord;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
@@ -60,11 +53,9 @@ import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.io.SequenceInputStream;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.springframework.data.relational.core.query.Criteria.where;
 import static org.springframework.data.relational.core.query.Query.query;
@@ -93,6 +84,10 @@ public class TemplateServiceImpl implements TemplateService {
     private final BatchTaskConfig batchTaskConfig;
 
     private final TransactionalOperator transactionalOperator;
+
+    private final ImportTaskExecutor importTaskExecutor;
+
+    private final ExportTaskExecutor exportTaskExecutor;
 
     private final ScriptEngine scriptEngine = new GroovyScriptEngineImpl();
 
@@ -390,65 +385,16 @@ public class TemplateServiceImpl implements TemplateService {
     }
 
     private Mono<Integer> executeTask(TemplateTaskDO task, TemplateModel templateModel) {
-        TemplateDO templateDO = templateModel.getTemplateDO();
-        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.S3)
-                .doOnNext(rowData -> {
-                    log.info("当前数据:[{}]", JSON.toJSONString(rowData));
-                });
 
-        Flux<String> rpcFlux;
-        Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().multicast().onBackpressureBuffer();
-        Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
-
-        SubscribeErrorHolder errorHolder = SubscribeErrorHolder.build();
-        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()), task.getId());
-        // 如果是批量的则拆分`
-        final AtomicInteger ati = new AtomicInteger();
-        if (isBatch(templateDO.getExecuteType())) {
-            rpcFlux = excelFile.buffer(templateDO.getBatchSize())
-                    .flatMap(rowDataList ->
-                            reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                            JSONArray.toJSONString(rowDataList), String.class)
-                                    .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
-                                    .onErrorResume((err) -> {
-                                        if (CollectionUtils.isEmpty(rowDataList)) {
-                                            return Mono.empty();
-                                        }
-                                        for (Map<String, Object> rowData : rowDataList) {
-                                            log.info("emitNext:[{}]", rowData);
-                                            errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
-                                            ati.incrementAndGet();
-                                        }
-                                        return Mono.empty();
-                                    }))
-                    .doFinally((s) -> {
-                        log.info("emitComplete");
-                        errSink.tryEmitComplete();
-                    });
-
-        } else {
-            rpcFlux = excelFile.flatMap(rowData ->
-                            reactorWebClient.post(templateDO.getServerName(), templateDO.getUri(),
-                                    JSON.toJSONString(rowData), String.class))
-                    .onErrorContinue((err, rowData) -> {
-                        errSink.emitNext(new Pair<>((Map<String, Object>) rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
-                        ati.incrementAndGet();
-                    }).doFinally((s) -> {
-                        errSink.tryEmitComplete();
-                    });
+        switch (templateModel.getTaskType()) {
+            case TaskTypeRecord.IMPORT_TASK -> {
+                return importTaskExecutor.execute(task, templateModel);
+            }
+            case TaskTypeRecord.EXPORT_TASK -> {
+                return exportTaskExecutor.execute(task, templateModel);
+            }
         }
-        return Mono.when(rpcFlux, errFlux).then(
-                Mono.fromSupplier(ati::get)
-        );
-    }
-
-
-    private String getErrorFileNameFromUrl(String url) {
-        if (StringUtils.isBlank(url)) {
-            return "未命名" + System.currentTimeMillis() + ".xlsx";
-        }
-        String fileName = FileUtils.getFileNameNoExtension(url);
-        return fileName + System.currentTimeMillis() + ".xlsx";
+        return Mono.error(new RuntimeException("task type isn't exist"));
     }
 
     private Mono<?> preProcess(TemplateTaskDO task) {
@@ -484,8 +430,5 @@ public class TemplateServiceImpl implements TemplateService {
                 .then(afterTaskComplete(templateModel, task));
     }
 
-    private boolean isBatch(Integer executeType) {
-        return Objects.equals(ExecuteTypeEnum.Batch.getValue(), executeType);
-    }
 
 }

@@ -4,7 +4,9 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.metadata.WriteSheet;
+import com.alibaba.fastjson2.JSONObject;
 import javafx.util.Pair;
+import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
 import pers.nanahci.reactor.datacenter.core.common.EasyURL;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
@@ -40,7 +42,7 @@ public class ExcelOperatorHolder {
     }
 
 
-    public void write(List<Pair<Map<String, Object>, Throwable>> errData) {
+    public void writeError(List<Pair<Map<String, Object>, Throwable>> errData) {
         if (Objects.isNull(excelWriterBuilder)) {
             init(buildHead(errData.get(0).getKey()));
         }
@@ -52,9 +54,28 @@ public class ExcelOperatorHolder {
             values.add(err.getMessage());
             return values;
         }).collect(Collectors.toList()), writeSheet);
-
-
     }
+
+    public void writeExportData(List<JSONObject> exportData) {
+        if(CollectionUtils.isEmpty(exportData)){
+            return;
+        }
+        if (Objects.isNull(excelWriterBuilder)) {
+            JSONObject jsonObject = exportData.get(0);
+            Map exportData0 = jsonObject.toJavaObject(LinkedHashMap.class);
+            init(buildHead(exportData0));
+        }
+        excelWriter.write(() -> exportData.stream().map(jsonObject -> {
+            Collection<Object> values = new ArrayList<>();
+            jsonObject.forEach((k,v)->{
+                values.add(v);
+            });
+            return values;
+        }).collect(Collectors.toList()), writeSheet);
+    }
+
+
+
 
     public String upload(FileStoreType type) {
         if (Objects.equals(type, FileStoreType.LOCAL)) {

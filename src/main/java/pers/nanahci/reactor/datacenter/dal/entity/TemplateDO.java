@@ -19,6 +19,8 @@ public class TemplateDO {
     private String uri;
 
     private Integer rpcType;
+
+    private Integer type;
     /**
      * 执行方式（1-逐行调用，2-批量调用）
      */
@@ -54,7 +56,6 @@ public class TemplateDO {
 
         private Integer scriptType;
 
-        private String headList;
 
     }
 

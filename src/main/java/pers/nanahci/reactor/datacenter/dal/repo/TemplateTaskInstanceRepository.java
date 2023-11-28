@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.dal.entity.repo;
+package pers.nanahci.reactor.datacenter.dal.repo;
 
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;

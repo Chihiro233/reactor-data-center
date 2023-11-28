@@ -1,5 +1,6 @@
 package pers.nanahci.reactor.datacenter.controller.param;
 
+import com.google.common.base.Objects;
 import lombok.Data;
 import reactor.core.publisher.Mono;
 
@@ -27,6 +28,10 @@ public class Ret<T> {
 
     public static <T> Mono<Ret<T>> success(Mono<T> mono) {
         return mono.map(t -> new Ret<T>(CodeConstant.SUCCESS, CodeConstant.SUCCESS_MSG, t));
+    }
+
+    public boolean whetherSuccess() {
+        return Objects.equal(code, CodeConstant.SUCCESS);
     }
 
     public static Ret<Void> fail(Throwable t) {

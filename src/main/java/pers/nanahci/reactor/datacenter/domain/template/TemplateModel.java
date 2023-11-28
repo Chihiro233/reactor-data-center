@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import pers.nanahci.reactor.datacenter.service.task.constant.FailStrategy;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
+import pers.nanahci.reactor.datacenter.service.task.constant.TaskTypeRecord;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +40,17 @@ public class TemplateModel {
             throw new RuntimeException("template is null");
         }
         return templateDO.getMaxRetry();
+    }
+
+    /**
+     * @see TaskTypeRecord
+     * @return
+     */
+    public Integer getTaskType(){
+        if(templateDO == null){
+            throw new RuntimeException("template is null");
+        }
+        return templateDO.getType();
     }
 
 

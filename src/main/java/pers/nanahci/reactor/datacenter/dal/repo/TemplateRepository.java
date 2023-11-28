@@ -1,4 +1,4 @@
-package pers.nanahci.reactor.datacenter.dal.entity.repo;
+package pers.nanahci.reactor.datacenter.dal.repo;
 
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;

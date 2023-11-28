@@ -16,11 +16,11 @@ public class TemplateTaskJobHandler {
 
     @XxlJob("taskExecutorJob")
     public void taskExecutorJob() {
-        log.info("开始执行未完成的job任务");
+        log.info("start execution of pending job tasks");
         templateService
                 .getUnComplete()
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.info("没有未完成的任务");
+                    log.info("no pending job");
                     return Mono.empty();
                 }))
                 .subscribe(model -> templateService.execute(model));
@@ -28,11 +28,11 @@ public class TemplateTaskJobHandler {
 
     @XxlJob("timeoutTaskJob")
     public void timeoutTaskJob() {
-        log.info("开始搜索超时job任务");
+        log.info("start searching timeout task");
         templateService
                 .getTimeoutTask()
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.info("没有未完成的任务");
+                    log.info("no timeout task");
                     return Mono.empty();
                 }))
                 .subscribe(model -> templateService.resolveTimeoutTask(model));
