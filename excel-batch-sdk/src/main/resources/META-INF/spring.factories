@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+pers.nanachi.reactor.datacer.sdk.excel.config.ExcelBatchAutoConfig
