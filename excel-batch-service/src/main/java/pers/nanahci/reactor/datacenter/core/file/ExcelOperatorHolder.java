@@ -8,7 +8,6 @@ import com.alibaba.fastjson2.JSONObject;
 import javafx.util.Pair;
 import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
-import pers.nanahci.reactor.datacenter.core.common.EasyURL;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
 
 import java.io.File;
@@ -32,6 +31,7 @@ public class ExcelOperatorHolder {
 
     private WriteSheet writeSheet;
 
+    private volatile boolean initalize;
 
     public ExcelOperatorHolder(String tempPath, String fileName,
                                String bucketPath, String bucket) {
@@ -43,8 +43,8 @@ public class ExcelOperatorHolder {
 
 
     public void writeError(List<Pair<Map<String, Object>, Throwable>> errData) {
-        if (Objects.isNull(excelWriterBuilder)) {
-            init(buildHead(errData.get(0).getKey()));
+        if (!initalize) {
+            init(buildHeadByRowData(errData.get(0).getKey()));
         }
         excelWriter.write(() -> errData.stream().map(pair -> {
             Map<String, Object> rowData = pair.getKey();
@@ -57,24 +57,22 @@ public class ExcelOperatorHolder {
     }
 
     public void writeExportData(List<JSONObject> exportData) {
-        if(CollectionUtils.isEmpty(exportData)){
+        if (CollectionUtils.isEmpty(exportData)) {
             return;
         }
-        if (Objects.isNull(excelWriterBuilder)) {
+        if (!initalize) {
             JSONObject jsonObject = exportData.get(0);
             Map exportData0 = jsonObject.toJavaObject(LinkedHashMap.class);
-            init(buildHead(exportData0));
+            init(buildHeadByRowData(exportData0));
         }
         excelWriter.write(() -> exportData.stream().map(jsonObject -> {
             Collection<Object> values = new ArrayList<>();
-            jsonObject.forEach((k,v)->{
+            jsonObject.forEach((k, v) -> {
                 values.add(v);
             });
             return values;
         }).collect(Collectors.toList()), writeSheet);
     }
-
-
 
 
     public String upload(FileStoreType type) {
@@ -83,21 +81,23 @@ public class ExcelOperatorHolder {
         }
         FileClient fileClient = FileClientFactory.get(type);
         return fileClient.uploadLocalFile(PathUtils.concat(tempPath, fileName),
-                PathUtils.concat(path,fileName), ContentTypes.EXCEL);
+                PathUtils.concat(path, fileName), ContentTypes.EXCEL);
     }
 
     public void finish() {
         excelWriter.finish();
     }
 
-    private void init(List<List<String>> head) {
+    public synchronized void init(List<List<String>> head) {
         excelWriterBuilder = EasyExcel.write(new File(tempPath + fileName))
                 .head(head);
         writeSheet = EasyExcel.writerSheet("失败结果").build();
         excelWriter = excelWriterBuilder.build();
+
+        initalize = true;
     }
 
-    private List<List<String>> buildHead(Map<String, Object> rowData) {
+    private List<List<String>> buildHeadByRowData(Map<String, Object> rowData) {
         List<String> head = new ArrayList<>();
         for (Map.Entry<String, Object> entry : rowData.entrySet()) {
             String headName = entry.getKey();

@@ -43,7 +43,7 @@ task:
     bucket: reactor-batch-1304994440
     err-path: upload/err
     path: upload/task
-    temp-path: D:/code/proj/learn/reactor-data-center/src/main/resources/local/
+    temp-path: D:/code/proj/learn/reactor-data-center/excel-batch-service/src/main/resources/local/
 
 
 

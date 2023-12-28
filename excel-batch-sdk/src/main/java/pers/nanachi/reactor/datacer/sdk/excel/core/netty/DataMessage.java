@@ -16,15 +16,15 @@ import java.util.Objects;
 @ToString
 @Accessors(chain = true)
 public class DataMessage {
-
+    // request or response
     private byte command;
-
+    // represent whether the message is success
     private Integer code;
 
     private Long msgId;
-
+    // additional messages, example pageNo, taskName
     private Attach attach;
-
+    // message body
     private byte[] data;
 
 
@@ -109,6 +109,24 @@ public class DataMessage {
             return true;
         }
         return Objects.equals(code, RespCode.SUCCESS);
+    }
+
+    public DataMessage nextPage() {
+        if (attach != null) {
+            nextPage(attach.getPageNo() + 1);
+        } else {
+            throw new RuntimeException("page info is null");
+        }
+        return this;
+    }
+
+    public DataMessage nextPage(int pageNo) {
+        if (attach != null) {
+            attach.setPageNo(pageNo);
+        } else {
+            throw new RuntimeException("page info is null");
+        }
+        return this;
     }
 
 }

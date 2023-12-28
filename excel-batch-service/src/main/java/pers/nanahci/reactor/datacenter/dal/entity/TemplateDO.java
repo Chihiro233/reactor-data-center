@@ -14,6 +14,8 @@ public class TemplateDO {
 
     private String batchNo;
 
+    private String name;
+
     private String serverName;
 
     private String uri;

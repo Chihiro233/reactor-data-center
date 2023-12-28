@@ -1,16 +1,16 @@
 package pers.nanahci.reactor.datacenter.service.task;
 
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
+import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
-import pers.nanahci.reactor.datacenter.controller.param.Ret;
 import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.netty.ReactorNettyEndpointClient;
@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @AllArgsConstructor
@@ -42,63 +41,87 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     private final Map<String, ExcelOperatorHolder> excelOperatorHolderMap = new ConcurrentHashMap<>();
 
+    // TODO refactor
     public Mono<Integer> execute(TemplateTaskDO task, TemplateModel templateModel) {
 
-        TemplateDO templateDO = templateModel.getTemplateDO();
-        AtomicInteger pageNo = new AtomicInteger(1);
-
-        return dynamicCall(pageNo.get(), task, templateDO)
-                .expand(list -> {
-                    if (CollectionUtils.isEmpty(list) || list.size() < templateDO.getBatchSize()) {
-                        return Mono.empty();
-                    } else {
-                        return dynamicCall(pageNo.incrementAndGet(), task, templateDO);
-                    }
-                }).doFinally(signalType -> {
-                    if (excelOperatorHolderMap.containsKey(task.getBatchNo())) {
-                        ExcelOperatorHolder excelOperatorHolder = excelOperatorHolderMap.get(task.getBatchNo());
-                        excelOperatorHolder.finish();
-                        excelOperatorHolder.upload(FileStoreType.S3);
-                    }
-                }).then(Mono.fromSupplier(() -> {
-                    log.info("access this position");
-                    return 0;
-                }));
-    }
-
-    private Mono<List<?>> dynamicCall(int pageNo, TemplateTaskDO task, TemplateDO template) {
+        TemplateDO template = templateModel.getTemplateDO();
         String bizInfo = task.getBizInfo();
         String serverName = template.getServerName();
-        String uri = template.getUri();
-        JSONObject.parseObject("");
+
         DataMessage.Attach attach = new DataMessage.Attach();
-        attach.setStage(ExportExecuteStage._getHead)
-        DataMessage dataMessage = DataMessage.buildReqData(bizInfo,);
+        // 1. init request data
+        attach.setTaskType(TaskTypeRecord.EXPORT_TASK);
+        attach.setTaskName(template.getName());
+        attach.setPageNo(1);
+        DataMessage dataMessage = DataMessage.buildReqData(bizInfo, attach);
 
-        // 假如参数
-        return reactorNettyEndpointClient.execute(serverName, DataMessage.buildReqData())
-                .handle((resp, sink) -> {
-                    Ret<?> ret = JSON.parseObject(resp, Ret.class);
-                    if (ret.whetherSuccess()) {
-                        Object data = ret.getData();
-                        // TODO process data
-                        List<JSONObject> realData = Collections.emptyList();
-                        if (data instanceof JSONArray jsonArray) {
-                            if (jsonArray.isEmpty()) {
-                                sink.next(realData);
-                                return;
-                            }
-                            ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(), batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
+        // 2. execute
+        return requestHead(serverName, dataMessage)
+                .flatMap(headData -> Mono.fromRunnable(() -> {
+                    ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(),
+                            batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
                                     task.getBatchNo() + "-" + System.currentTimeMillis() + ".xlsx", batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
+                    operatorHolder.init(headData);
+                }))
+                .then(requestData(template, task, dataMessage));
 
-                            realData = jsonArray.toList(JSONObject.class);
-                            operatorHolder.writeExportData(realData);
-                        } else {
-                            sink.error(new RuntimeException("parse error, data isn't array"));
-                        }
+    }
+
+
+    private Mono<List<List<String>>> requestHead(String serverName, DataMessage dataMessage) {
+        return Mono.fromRunnable(() -> dataMessage.getAttach().setStage(ExportExecuteStage._getHead))
+                .then(reactorNettyEndpointClient.execute(serverName, dataMessage))
+                .map(data -> {
+                    TypeReference<List<List<String>>> ltr = new TypeReference<>() {
+                    };
+                    return JSON.parseObject(new String(data), ltr);
+                });
+    }
+
+    private Mono<Integer> requestData(TemplateDO template, TemplateTaskDO task, DataMessage dataMessage) {
+
+        String serverName = template.getServerName();
+        return Mono.fromRunnable(() -> dataMessage.getAttach().setStage(ExportExecuteStage._getData))
+                .then(
+                        dynamicCall(task, serverName, dataMessage)
+                                .expand(list -> {
+                                    if (CollectionUtils.isEmpty(list) || list.size() < template.getBatchSize()) {
+                                        return Mono.empty();
+                                    } else {
+                                        // next page
+                                        return dynamicCall(task, serverName, dataMessage.nextPage());
+                                    }
+                                }).doFinally(signalType -> {
+                                    if (excelOperatorHolderMap.containsKey(task.getBatchNo())) {
+                                        ExcelOperatorHolder excelOperatorHolder = excelOperatorHolderMap.get(task.getBatchNo());
+                                        excelOperatorHolder.finish();
+                                        excelOperatorHolder.upload(FileStoreType.S3);
+                                    }
+                                }).then(Mono.fromSupplier(() -> {
+                                    log.info("access this position");
+                                    return 0;
+                                }))
+                );
+
+    }
+
+    private Mono<List<?>> dynamicCall(TemplateTaskDO task, String serverName, DataMessage dataMessage) {
+        // 假如参数
+        return reactorNettyEndpointClient.execute(serverName, dataMessage)
+                .handle((data, sink) -> {
+                    List<JSONObject> realData = Collections.emptyList();
+                    try {
+                        realData = JSON.parseArray(data).toList(JSONObject.class);
+
+                        ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(), batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
+                                task.getBatchNo() + "-" + System.currentTimeMillis() + ".xlsx", batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
+
+                        operatorHolder.writeExportData(realData);
+                    } catch (Exception e) {
+                        log.error("resolve export data error,batchNo is [{}]", task.getBatchNo(), e);
+                        sink.error(new RuntimeException("export data resolution error"));
+                    } finally {
                         sink.next(realData);
-                    } else {
-                        sink.error(new RuntimeException("unexpect error"));
                     }
                 });
     }

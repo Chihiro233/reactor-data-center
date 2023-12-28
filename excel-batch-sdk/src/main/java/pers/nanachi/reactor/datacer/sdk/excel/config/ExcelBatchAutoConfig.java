@@ -4,7 +4,6 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelBaseHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelExportHandlerFactory;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataProcessClientHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.NettyEndpointService;
 
 import java.util.List;
@@ -23,8 +22,4 @@ public class ExcelBatchAutoConfig {
         return new NettyEndpointService(excelExportHandlerFactory);
     }
 
-    @Bean
-    public DataProcessClientHandler dataProcessClientHandler(){
-        return new DataProcessClientHandler();
-    }
 }

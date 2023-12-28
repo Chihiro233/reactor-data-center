@@ -94,8 +94,10 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public Flux<TemplateModel> getUnComplete() {
-        int shardTotal = XxlJobContext.getXxlJobContext().getShardTotal();
-        int shardIndex = XxlJobContext.getXxlJobContext().getShardIndex();
+        //int shardTotal = XxlJobContext.getXxlJobContext().getShardTotal();
+        //int shardIndex = XxlJobContext.getXxlJobContext().getShardIndex();
+        int shardTotal = 1;
+        int shardIndex = 0;
         return r2dbcEntityTemplate.select(TemplateTaskDO.class)
                 .matching(query(where("status")
                         .in(TaskStatusEnum.UN_START.getValue(), TaskStatusEnum.UN_START_RETRY.getValue()))
@@ -171,8 +173,7 @@ public class TemplateServiceImpl implements TemplateService {
                             })
                             .then(preProcess(task))
                             .then(executeTask(task, templateModel) // test TODO
-                                    .onErrorResume(e -> failTask(task, e)
-                                            .then(Mono.error(e))))
+                                    .onErrorResume(e -> failTask(task, e).then(Mono.error(e))))
                             .flatMap(errRows -> postProcess(errRows, task, templateModel))
                             .doFinally((signalType -> {
                                 lock.unlock(mockTid).subscribe();

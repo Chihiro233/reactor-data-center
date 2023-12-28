@@ -30,9 +30,8 @@ public class ReactorNettyEndpointClient {
 
     private final DataChannelManager dataChannelManager = new DataChannelManager();
 
-    private final DataProcessClientHandler dataProcessClientHandler = new DataProcessClientHandler();
 
-    public Mono<?> execute(String serviceId, DataMessage dataMessage) {
+    public Mono<byte[]> execute(String serviceId, DataMessage dataMessage) {
         ReactiveLoadBalancer<ServiceInstance> instance =
                 loadBalancerClientFactory.getInstance(serviceId);
         // 将消息转换成
@@ -62,9 +61,11 @@ public class ReactorNettyEndpointClient {
     }
 
 
-    public Mono<?> setupInbound(Connection connection) {
+    public Mono<byte[]> setupInbound(Connection connection) {
         return connection.inbound()
                 .receiveObject()
+                .take(1)
+                .last()
                 .doOnNext(value -> {
                     log.info("inbound next value is {}", value);
                 })
@@ -72,16 +73,13 @@ public class ReactorNettyEndpointClient {
                     log.info("client connect error:", t);
                     return Mono.empty();
                 })
-                .ofType(DataMessage.class)
+                .cast(DataMessage.class)
                 .flatMap(dataMessage -> {
                     log.info("receive message :[{}]", JSON.toJSONString(dataMessage));
-                    // TODO resolve dataMessage
-                    return dispatch(dataMessage)
-                            .doFinally(signalType -> {
-                                connection.disposeNow();
-                            });
-
-                })
+                    return dispatch(dataMessage);
+                }).doFinally(signalType -> {
+                    connection.dispose();
+                });
     }
 
     public void setupOutbound(Connection connection, Object dataMessage) {
@@ -90,7 +88,7 @@ public class ReactorNettyEndpointClient {
                 .then().subscribe();
     }
 
-    private Mono<?> dispatch(DataMessage msg) {
+    private Mono<byte[]> dispatch(DataMessage msg) {
         switch (msg.getCommand()) {
             case CommandType.Req -> {
                 // TODO
@@ -102,8 +100,7 @@ public class ReactorNettyEndpointClient {
                     return Mono.error(new RuntimeException("export request fail"));
                 }
                 // 2. start to check
-                JSONArray dataArray = JSON.parseArray(msg.getData());
-                return Mono.just(dataArray);
+                return Mono.just(msg.getData());
             }
         }
         log.info("no any message");
@@ -208,8 +205,7 @@ public class ReactorNettyEndpointClient {
                 new DataEncoder(),
                 dataChannelManager,
                 new IdleStateHandler(0, 0,
-                        NettyCoreConfig.maxIdleTime),
-                dataProcessClientHandler);
+                        NettyCoreConfig.maxIdleTime));
     }
 
     private void initConnection(Connection conn) {
@@ -220,7 +216,7 @@ public class ReactorNettyEndpointClient {
         conn.addHandlerLast(dataChannelManager);
         conn.addHandlerLast(new IdleStateHandler(0, 0,
                 NettyCoreConfig.maxIdleTime));
-        conn.addHandlerLast(dataProcessClientHandler);
+        //conn.addHandlerLast(dataProcessClientHandler);
     }
 
 }

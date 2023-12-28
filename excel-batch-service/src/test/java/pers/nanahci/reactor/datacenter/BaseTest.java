@@ -3,7 +3,6 @@ package pers.nanahci.reactor.datacenter;
 import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
 import org.junit.Test;
-import org.junit.platform.commons.util.StringUtils;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -14,7 +13,6 @@ import pers.nanahci.reactor.datacenter.core.netty.ReactorNettyEndpointClient;
 import pers.nanahci.reactor.datacenter.job.TemplateTaskJobHandler;
 import pers.nanahci.reactor.datacenter.service.task.TemplateService;
 
-import java.nio.charset.StandardCharsets;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = {MainApplication.class})
@@ -48,8 +46,8 @@ public class BaseTest {
         attach.setTaskType(TaskTypeRecord.EXPORT_TASK);
         attach.setStage(ExportExecuteStage._getHead);
         //StringUtils.
-        DataMessage dataMessage = DataMessage.buildReqData(data,attach);
-        reactorNettyEndpointClient.execute("web-demo", dataMessage);
+        DataMessage dataMessage = DataMessage.buildReqData(data, attach);
+        reactorNettyEndpointClient.execute("web-demo", dataMessage).subscribe();
         Thread.sleep(1000000L);
     }
 
