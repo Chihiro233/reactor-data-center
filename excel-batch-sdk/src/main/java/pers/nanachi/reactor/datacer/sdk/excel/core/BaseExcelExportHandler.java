@@ -10,9 +10,9 @@ import java.util.Map;
 
 public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler<R, T> {
 
-    private Type R_;
+    private final Type R_;
 
-    private Type T_;
+    private final Type T_;
 
     public BaseExcelExportHandler() {
         Type genericSuperclass = getClass().getGenericSuperclass();
@@ -41,14 +41,14 @@ public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler
         return getExportData(pageNo, paramT);
     }
 
-    public final List<List<String>> getExcelHeaders(byte[] param) {
+    public final List<List<String>> getExcelHeaders0(byte[] param) {
         T paramT = JSON.parseObject(param, T_);
         return getExcelHeaders(paramT);
     }
 
     public final Map<String, String> templateFill(byte[] param) {
-        T t = convertParam(param);
-        return templateFill(t);
+        T paramT = JSON.parseObject(param, T_);
+        return templateFill(paramT);
     }
 
 

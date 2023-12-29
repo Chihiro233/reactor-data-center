@@ -9,7 +9,7 @@ import java.lang.reflect.Type;
 @Slf4j
 public abstract class BaseExcelImportHandler<T> implements ExcelImportHandler<T> {
 
-    private Type type;
+    private final Type type;
 
     public BaseExcelImportHandler() {
         Type genericSuperclass = getClass().getGenericSuperclass();
@@ -22,7 +22,6 @@ public abstract class BaseExcelImportHandler<T> implements ExcelImportHandler<T>
 
     public abstract void importExecute(T param);
 
-    public abstract T convert(byte[] data);
 
     public final void importExecute(byte[] param) {
         T paramT = JSONB.parseObject(param, type);

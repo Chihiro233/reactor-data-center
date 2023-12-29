@@ -19,10 +19,10 @@ import java.util.List;
 @Slf4j
 public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataMessage> {
 
-    private ExcelExportHandlerFactory excelExportHandlerFactory;
+    private ExcelHandlerFactory excelHandlerFactory;
 
-    public DataProcessServiceHandler(ExcelExportHandlerFactory excelExportHandlerFactory) {
-        this.excelExportHandlerFactory = excelExportHandlerFactory;
+    public DataProcessServiceHandler(ExcelHandlerFactory excelHandlerFactory) {
+        this.excelHandlerFactory = excelHandlerFactory;
     }
 
     @Override
@@ -48,11 +48,11 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataM
 
         switch (attach.getTaskType()) {
             case TaskTypeRecord.IMPORT_TASK -> {
-                ExcelImportHandler<?> importHandler = excelExportHandlerFactory.getImportHandler(taskName);
+                ExcelImportHandler<?> importHandler = excelHandlerFactory.getImportHandler(taskName);
                 executeImport(ctx, importHandler, data);
             }
             case TaskTypeRecord.EXPORT_TASK -> {
-                ExcelExportHandler<?, ?> exportHandler = excelExportHandlerFactory.getExportHandler(taskName);
+                ExcelExportHandler<?, ?> exportHandler = excelHandlerFactory.getExportHandler(taskName);
                 executeExportStage(ctx, exportHandler, stage, data, pageNo);
             }
         }
@@ -64,15 +64,14 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataM
         BaseExcelExportHandler<?, ?> baseExcelExportHandler = (BaseExcelExportHandler<?, ?>) exportHandler;
         switch (stage) {
             case ExportExecuteStage._getHead -> {
-                List<List<String>> excelHeaders = baseExcelExportHandler.getExcelHeaders(param);
+                List<List<String>> excelHeaders = baseExcelExportHandler.getExcelHeaders0(param);
                 JSONArray jsonArray = JSONArray.copyOf(excelHeaders);
                 DataMessage resp = DataMessage.buildRespData(jsonArray, DataMessage.RespCode.SUCCESS);
                 ctx.writeAndFlush(resp);
             }
             case ExportExecuteStage._getData -> {
                 List<?> exportData = baseExcelExportHandler.getExportData0(pageNo, param);
-                JSONArray jsonArray = JSONArray.copyOf(exportData);
-                DataMessage resp = DataMessage.buildRespData(jsonArray, DataMessage.RespCode.SUCCESS);
+                DataMessage resp = DataMessage.buildRespData(exportData, DataMessage.RespCode.SUCCESS);
                 ctx.writeAndFlush(resp);
             }
         }

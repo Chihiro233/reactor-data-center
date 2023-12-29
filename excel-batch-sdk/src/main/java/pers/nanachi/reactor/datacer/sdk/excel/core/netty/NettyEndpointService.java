@@ -2,6 +2,7 @@ package pers.nanachi.reactor.datacer.sdk.excel.core.netty;
 
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -13,16 +14,17 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import pers.nanachi.reactor.datacer.sdk.excel.core.EventExecutorPoll;
-import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelExportHandlerFactory;
+import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
 import pers.nanachi.reactor.datacer.sdk.excel.utils.SysUtils;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
-public class NettyEndpointService implements EndpointService {
+public class NettyEndpointService {
 
     private final ServerBootstrap serverBootstrap;
 
@@ -30,29 +32,26 @@ public class NettyEndpointService implements EndpointService {
 
     private final EventLoopGroup eventLoopGroupBoss;
 
-
-
     private final DataChannelManager dataChannelManager;
 
     private final DataProcessServiceHandler dataProcessServiceHandler;
 
+    private ChannelFuture serverInstance;
 
-    private static final String URI_EXPORT = "/excel-batch/export";
 
-    public NettyEndpointService(ExcelExportHandlerFactory excelExportHandlerFactory) {
+    public NettyEndpointService(ExcelHandlerFactory excelHandlerFactory) {
         this.serverBootstrap = new ServerBootstrap();
         this.eventLoopGroupSelector = buildEventLoopGroup();
         this.eventLoopGroupBoss = buildEventLoopBoss();
         this.dataChannelManager = new DataChannelManager();
-        this.dataProcessServiceHandler = new DataProcessServiceHandler(excelExportHandlerFactory);
+        this.dataProcessServiceHandler = new DataProcessServiceHandler(excelHandlerFactory);
     }
 
 
     @PostConstruct
-    @Override
     public void start() {
 
-        this.serverBootstrap
+        this.serverInstance = this.serverBootstrap
                 .group(eventLoopGroupBoss, eventLoopGroupSelector)
                 .channel(useEpoll() ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
                 .option(ChannelOption.SO_BACKLOG, 1024)
@@ -75,12 +74,13 @@ public class NettyEndpointService implements EndpointService {
                                 );
                     }
                 }).bind(9896);
-
     }
 
-    @Override
-    public void shutdown() {
-
+    @PreDestroy
+    public void shutdown() throws InterruptedException {
+        this.eventLoopGroupBoss.shutdownGracefully().sync();
+        this.eventLoopGroupSelector.shutdownGracefully().sync();
+        this.serverInstance.channel().closeFuture().sync();
     }
 
     private EventLoopGroup buildEventLoopGroup() {

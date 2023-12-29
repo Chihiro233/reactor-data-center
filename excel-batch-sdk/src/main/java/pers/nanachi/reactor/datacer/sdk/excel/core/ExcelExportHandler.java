@@ -12,7 +12,5 @@ public interface ExcelExportHandler<R, T> extends ExcelBaseHandler {
 
     Map<String, String> templateFill(T param);
 
-    T convertParam(byte[] data);
-
 
 }

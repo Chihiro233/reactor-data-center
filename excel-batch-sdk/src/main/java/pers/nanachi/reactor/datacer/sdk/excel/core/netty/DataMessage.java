@@ -45,7 +45,7 @@ public class DataMessage {
 
         // task stage
         /**
-         * @See pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage
+         * @see  pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage
          */
         private Integer stage;
 
@@ -113,11 +113,10 @@ public class DataMessage {
 
     public DataMessage nextPage() {
         if (attach != null) {
-            nextPage(attach.getPageNo() + 1);
+            return nextPage(attach.getPageNo() + 1);
         } else {
             throw new RuntimeException("page info is null");
         }
-        return this;
     }
 
     public DataMessage nextPage(int pageNo) {

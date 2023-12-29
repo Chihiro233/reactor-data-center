@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-public class ExcelExportHandlerFactory {
+public class ExcelHandlerFactory {
 
 
     private final Map<String, ExcelExportHandler<?, ?>> EXCEL_EXPORT_HANDLE_MAP = new ConcurrentHashMap<>();
@@ -18,7 +18,7 @@ public class ExcelExportHandlerFactory {
     private final Map<String, ExcelImportHandler<?>> EXCEL_IMPORT_HANDLE_MAP = new ConcurrentHashMap<>();
 
 
-    public ExcelExportHandlerFactory(List<ExcelBaseHandler> excelHandlers) {
+    public ExcelHandlerFactory(List<ExcelBaseHandler> excelHandlers) {
 
         for (ExcelBaseHandler excelHandler : excelHandlers) {
 

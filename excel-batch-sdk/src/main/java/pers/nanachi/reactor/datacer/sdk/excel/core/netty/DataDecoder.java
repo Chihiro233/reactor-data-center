@@ -23,8 +23,6 @@ public class DataDecoder extends LengthFieldBasedFrameDecoder {
         if (in == null) {
             return null;
         }
-        //TODO 疑惑点
-        // if readable bytes length less than
         if (in.readableBytes() < NettyCoreConfig.headSize) {
             return null;
         }
@@ -50,7 +48,6 @@ public class DataDecoder extends LengthFieldBasedFrameDecoder {
         builder.msgId(msgId);
         builder.data(dataBytes);
         builder.code(code);
-        in.release();
         return builder.build();
     }
 }

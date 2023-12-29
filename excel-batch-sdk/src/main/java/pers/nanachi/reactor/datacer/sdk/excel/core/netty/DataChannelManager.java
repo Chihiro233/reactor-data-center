@@ -12,14 +12,14 @@ public class DataChannelManager extends ChannelDuplexHandler {
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        log.debug("请求写入");
+        log.debug("channel write");
         super.write(ctx, msg, promise);
     }
 
 
     @Override
     public void read(ChannelHandlerContext ctx) throws Exception {
-        log.debug("请求读取");
+        log.debug("channel read");
         super.read(ctx);
     }
 
