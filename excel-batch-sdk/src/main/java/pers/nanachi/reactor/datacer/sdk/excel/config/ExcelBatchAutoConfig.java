@@ -2,6 +2,7 @@ package pers.nanachi.reactor.datacer.sdk.excel.config;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelBaseHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
@@ -14,6 +15,7 @@ public class ExcelBatchAutoConfig {
 
     @Bean
     @ConditionalOnBean(value = ExcelBaseHandler.class)
+    @ConditionalOnProperty(name = "rexcel.batch.role", havingValue = "provider")
     public ExcelHandlerFactory excelExportHandlerFactory(List<ExcelBaseHandler> excelExportHandlers) {
         return new ExcelHandlerFactory(excelExportHandlers);
     }
@@ -23,7 +25,6 @@ public class ExcelBatchAutoConfig {
     public NettyEndpointService excelExportService(ExcelHandlerFactory excelHandlerFactory) {
         return new NettyEndpointService(excelHandlerFactory);
     }
-
 
 
 }

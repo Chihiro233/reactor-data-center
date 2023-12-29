@@ -17,6 +17,7 @@ import pers.nanachi.reactor.datacer.sdk.excel.core.netty.*;
 import reactor.core.publisher.Mono;
 import reactor.netty.Connection;
 import reactor.netty.DisposableServer;
+import reactor.netty.resources.LoopResources;
 import reactor.netty.tcp.TcpClient;
 import reactor.netty.tcp.TcpServer;
 
@@ -42,6 +43,7 @@ public class ReactorNettyEndpointClient {
                     return TcpClient.create()
                             .host(host)
                             .port(9896)
+                            .runOn(LoopResources.create("rexcel-req-client"))
                             .doOnChannelInit((connectionObserver, channel, remoteAddress) -> initPipeline(channel.pipeline()))
                             .doOnConnected(this::initConnection)
                             .wiretap(true)
