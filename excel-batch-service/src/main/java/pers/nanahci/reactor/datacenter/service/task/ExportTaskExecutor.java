@@ -13,7 +13,7 @@ import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
-import pers.nanahci.reactor.datacenter.core.netty.ReactorNettyEndpointClient;
+import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
 import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
@@ -34,7 +34,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     private final ReactorWebClient reactorWebClient;
 
-    private final ReactorNettyEndpointClient reactorNettyEndpointClient;
+    private final RpcClient rpcClient;
 
 
     private final BatchTaskConfig batchTaskConfig;
@@ -69,11 +69,15 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     private Mono<List<List<String>>> requestHead(String serverName, DataMessage dataMessage) {
         return Mono.fromRunnable(() -> dataMessage.getAttach().setStage(ExportExecuteStage._getHead))
-                .then(reactorNettyEndpointClient.execute(serverName, dataMessage))
-                .map(data -> {
+                .then(rpcClient.execute(serverName, dataMessage))
+                .handle((data, sink) -> {
+                    if(!dataMessage.whetherSuccess()) {
+                        sink.error(new RuntimeException("request head fail"));
+                        return;
+                    }
                     TypeReference<List<List<String>>> ltr = new TypeReference<>() {
                     };
-                    return JSON.parseObject(new String(data), ltr);
+                    sink.next(JSON.parseObject(new String(data.getData()), ltr));
                 });
     }
 
@@ -106,11 +110,16 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     private Mono<List<?>> dynamicCall(TemplateTaskDO task, String serverName, DataMessage dataMessage) {
         // 假如参数
-        return reactorNettyEndpointClient.execute(serverName, dataMessage)
+        return rpcClient.execute(serverName, dataMessage)
+                .log()
                 .handle((data, sink) -> {
+                    if(!data.whetherSuccess()){
+                        sink.error(new RuntimeException("request data fail"));
+                        return;
+                    }
                     List<JSONObject> realData = Collections.emptyList();
                     try {
-                        realData = JSON.parseArray(data).toList(JSONObject.class);
+                        realData = JSON.parseArray(data.getData()).toList(JSONObject.class);
 
                         ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(), batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
                                 task.getBatchNo() + "-" + System.currentTimeMillis() + ".xlsx", batchTaskConfig.getPath(), batchTaskConfig.getBucket()));

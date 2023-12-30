@@ -9,7 +9,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
-import pers.nanahci.reactor.datacenter.core.netty.ReactorNettyEndpointClient;
+import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
 import pers.nanahci.reactor.datacenter.job.TemplateTaskJobHandler;
 import pers.nanahci.reactor.datacenter.service.task.TemplateService;
 
@@ -27,7 +27,7 @@ public class BaseTest {
 
 
     @Resource
-    private ReactorNettyEndpointClient reactorNettyEndpointClient;
+    private RpcClient rpcClient;
 
 
     @Test
@@ -47,7 +47,7 @@ public class BaseTest {
         attach.setStage(ExportExecuteStage._getHead);
         //StringUtils.
         DataMessage dataMessage = DataMessage.buildReqData(data, attach);
-        reactorNettyEndpointClient.execute("web-demo", dataMessage).subscribe();
+        rpcClient.execute("web-demo", dataMessage).subscribe();
         Thread.sleep(1000000L);
     }
 
