@@ -5,11 +5,16 @@ import com.alibaba.fastjson2.JSONArray;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import jakarta.annotation.Resource;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacenter.common.util.AssertUtil;
 import pers.nanachi.reactor.datacer.sdk.excel.core.*;
+import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeEnum;
+import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeFactory;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
 
 import java.util.List;
 
@@ -17,13 +22,11 @@ import java.util.List;
 @ChannelHandler.Sharable
 @NoArgsConstructor
 @Slf4j
-public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataMessage> {
+public class DataProcessServiceHandler extends SimpleChannelInboundHandler<MessageProtocol> {
 
-    private ExcelHandlerFactory excelHandlerFactory;
+    @Resource
+    private TaskDispatcher taskDispatcher;
 
-    public DataProcessServiceHandler(ExcelHandlerFactory excelHandlerFactory) {
-        this.excelHandlerFactory = excelHandlerFactory;
-    }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -38,25 +41,35 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataM
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, DataMessage msg) throws Exception {
-        DataMessage.Attach attach = msg.getAttach();
-        String taskName = attach.getTaskName();
-        Integer stage = attach.getStage();
-        Integer pageNo = attach.getPageNo();
+    protected void channelRead0(ChannelHandlerContext ctx, MessageProtocol msg) throws Exception {
 
-        byte[] data = msg.getData();
+        MessageProtocol.ProtocolHeader header = msg.getHeader();
 
-        switch (attach.getTaskType()) {
-            case TaskTypeRecord.IMPORT_TASK -> {
-                ExcelImportHandler<?> importHandler = excelHandlerFactory.getImportHandler(taskName);
-                executeImport(ctx, importHandler, data);
-            }
-            case TaskTypeRecord.EXPORT_TASK -> {
-                ExcelExportHandler<?, ?> exportHandler = excelHandlerFactory.getExportHandler(taskName);
-                executeExportStage(ctx, exportHandler, stage, data, pageNo);
-            }
+        try{
+            Object ret = taskDispatcher.route(header.getTaskType())
+                    .handle(msg);
+
+            RpcResponse<?> response = RpcResponse.builder()
+                    .data(ret).build();
+
+            MessageProtocol.ProtocolHeader respHeader = new MessageProtocol.ProtocolHeader();
+            respHeader.setTaskType(header.getTaskType())
+                    .setMsgId(1L);
+
+            MessageProtocol.MessageProtocolBuilder resp = MessageProtocol.builder()
+                    .command(CommandType.Resp)
+                    .header(respHeader)
+                    .data(SerializeFactory.serialize(SerializeEnum.FASTJSON2, response));
+
+            ctx.writeAndFlush(resp);
+        }finally {
+
         }
+
+
+
     }
+
 
     private void executeExportStage(ChannelHandlerContext ctx, ExcelExportHandler<?, ?> exportHandler,
                                     Integer stage, byte[] param, Integer pageNo) {
@@ -66,12 +79,12 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<DataM
             case ExportExecuteStage._getHead -> {
                 List<List<String>> excelHeaders = baseExcelExportHandler.getExcelHeaders0(param);
                 JSONArray jsonArray = JSONArray.copyOf(excelHeaders);
-                DataMessage resp = DataMessage.buildRespData(jsonArray, DataMessage.RespCode.SUCCESS);
+                MessageProtocol resp = MessageProtocol.buildRespData(jsonArray, MessageProtocol.RespCode.SUCCESS);
                 ctx.writeAndFlush(resp);
             }
             case ExportExecuteStage._getData -> {
                 List<?> exportData = baseExcelExportHandler.getExportData0(pageNo, param);
-                DataMessage resp = DataMessage.buildRespData(exportData, DataMessage.RespCode.SUCCESS);
+                MessageProtocol resp = MessageProtocol.buildRespData(exportData, MessageProtocol.RespCode.SUCCESS);
                 ctx.writeAndFlush(resp);
             }
         }

@@ -7,16 +7,16 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.CommandType;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 
 @ChannelHandler.Sharable
 @Slf4j
 @Component
-public class DataProcessClientHandler extends SimpleChannelInboundHandler<DataMessage> {
+public class DataProcessClientHandler extends SimpleChannelInboundHandler<MessageProtocol> {
 
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, DataMessage msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, MessageProtocol msg) throws Exception {
         byte[] data = msg.getData();
         String str = JSON.parseObject(data, String.class);
         log.info("客户端接收到数据:{}", str);
@@ -24,7 +24,7 @@ public class DataProcessClientHandler extends SimpleChannelInboundHandler<DataMe
         // TODO 对数据做处理
     }
 
-    private void dispatch(ChannelHandlerContext ctx, DataMessage msg) {
+    private void dispatch(ChannelHandlerContext ctx, MessageProtocol msg) {
         switch (msg.getCommand()) {
             case CommandType.Req -> {
                 // TODO
@@ -36,10 +36,10 @@ public class DataProcessClientHandler extends SimpleChannelInboundHandler<DataMe
         }
     }
 
-    private void resolveResp(DataMessage msg) {
+    private void resolveResp(MessageProtocol msg) {
 
     }
 
-    private void resolveReq(DataMessage msg) {
+    private void resolveReq(MessageProtocol msg) {
     }
 }

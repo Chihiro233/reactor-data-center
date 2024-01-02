@@ -8,7 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
 import pers.nanahci.reactor.datacenter.job.TemplateTaskJobHandler;
 import pers.nanahci.reactor.datacenter.service.task.TemplateService;
@@ -41,13 +41,13 @@ public class BaseTest {
     @SneakyThrows
     public void testReactorClient() {
         String data = "{\"code\":123,\"msg\":\"dwadawd123\"}";
-        DataMessage.Attach attach = new DataMessage.Attach();
+        MessageProtocol.Attach attach = new MessageProtocol.Attach();
         attach.setTaskName("testExcelTask");
         attach.setTaskType(TaskTypeRecord.EXPORT_TASK);
         attach.setStage(ExportExecuteStage._getHead);
         //StringUtils.
-        DataMessage dataMessage = DataMessage.buildReqData(data, attach);
-        rpcClient.execute("web-demo", dataMessage).subscribe();
+        MessageProtocol messageProtocol = MessageProtocol.buildReqData(data, attach);
+        rpcClient.execute("web-demo", messageProtocol).subscribe();
         Thread.sleep(1000000L);
     }
 

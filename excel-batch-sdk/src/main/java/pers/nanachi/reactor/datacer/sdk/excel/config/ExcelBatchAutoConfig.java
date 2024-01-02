@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelBaseHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.NettyEndpointService;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskProcessor;
 
 import java.util.List;
 
@@ -24,6 +26,11 @@ public class ExcelBatchAutoConfig {
     @ConditionalOnBean(value = ExcelHandlerFactory.class)
     public NettyEndpointService excelExportService(ExcelHandlerFactory excelHandlerFactory) {
         return new NettyEndpointService(excelHandlerFactory);
+    }
+
+    @Bean
+    public TaskDispatcher taskDispatcher(List<TaskProcessor> taskProcessors){
+
     }
 
 

@@ -9,14 +9,17 @@ public interface NettyCoreConfig {
     Integer lengthAdjustment = 0;
     Integer initialBytesToStrip = 0;
 
+    /*-------------------msg info------------------------*/
     Integer headSize = 4;
 
     Integer typeLength = 1;
 
-    Integer codeLength = 4;
+    Integer taskTypeLength = 4;
 
-    Integer payLoadLength = 4;
     Integer msgIdLength = 8;
+
+    Integer headerLength = msgIdLength + taskTypeLength;
+    Integer payLoadLength = 4;
 
     Integer PROXY_BIND_PORT = 18081;
 

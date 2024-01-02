@@ -11,6 +11,7 @@ import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.stereotype.Component;
 import pers.nanachi.reactor.datacer.sdk.excel.core.EventExecutorPoll;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.*;
+import pers.nanachi.reactor.datacer.sdk.excel.param.ExcelTaskRequest;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.netty.Connection;
@@ -28,9 +29,9 @@ public class RpcClient {
     private final DataChannelManager dataChannelManager = new DataChannelManager();
 
 
-    public Mono<DataMessage> execute(String serviceId, DataMessage dataMessage) {
+    public Mono<RpcResponse<?>> execute(RpcRequest<?> request) {
         ReactiveLoadBalancer<ServiceInstance> instance =
-                loadBalancerClientFactory.getInstance(serviceId);
+                loadBalancerClientFactory.getInstance(request.getAttach().getServiceId());
         // 将消息转换成
         return Mono.from(instance.choose())
                 .flatMap(response -> {
@@ -54,13 +55,9 @@ public class RpcClient {
                                     return Mono.empty();
                                 }
                                 connection.openInbound();
-                                connection.handleRequest(dataMessage);
-                                Sinks.One<DataMessage> sink = EndPointSinkPoll.get(connection.getSinkId());
+                                connection.handleRequest(request);
+                                Sinks.One<RpcResponse<?>> sink = EndPointSinkPoll.get(connection.getSinkId());
                                 return sink.asMono();
-                            })
-                            .log()
-                            .doOnNext(dataMessage1 -> {
-                                log.info("请求：{}",JSON.toJSONString(dataMessage1));
                             });
                 });
     }
@@ -78,7 +75,7 @@ public class RpcClient {
                     log.info("client connect error:", t);
                     return Mono.empty();
                 })
-                .cast(DataMessage.class)
+                .cast(MessageProtocol.class)
                 .flatMap(dataMessage -> {
                     log.info("receive message :[{}]", JSON.toJSONString(dataMessage));
                     return dispatch(dataMessage);
@@ -93,7 +90,7 @@ public class RpcClient {
                 .then().subscribe();
     }
 
-    private Mono<byte[]> dispatch(DataMessage msg) {
+    private Mono<byte[]> dispatch(MessageProtocol msg) {
         switch (msg.getCommand()) {
             case CommandType.Req -> {
                 // TODO

@@ -31,7 +31,7 @@ public class ExcelOperatorHolder {
 
     private WriteSheet writeSheet;
 
-    private volatile boolean initalize;
+    private volatile boolean initialize;
 
     public ExcelOperatorHolder(String tempPath, String fileName,
                                String bucketPath, String bucket) {
@@ -42,8 +42,8 @@ public class ExcelOperatorHolder {
     }
 
 
-    public void writeError(List<Pair<Map<String, Object>, Throwable>> errData) {
-        if (!initalize) {
+    public ExcelOperatorHolder writeError(List<Pair<Map<String, Object>, Throwable>> errData) {
+        if (!initialize) {
             init(buildHeadByRowData(errData.get(0).getKey()));
         }
         excelWriter.write(() -> errData.stream().map(pair -> {
@@ -54,13 +54,14 @@ public class ExcelOperatorHolder {
             values.add(err.getMessage());
             return values;
         }).collect(Collectors.toList()), writeSheet);
+        return this;
     }
 
-    public void writeExportData(List<JSONObject> exportData) {
+    public ExcelOperatorHolder writeExportData(List<JSONObject> exportData) {
         if (CollectionUtils.isEmpty(exportData)) {
-            return;
+            return this;
         }
-        if (!initalize) {
+        if (!initialize) {
             JSONObject jsonObject = exportData.get(0);
             Map exportData0 = jsonObject.toJavaObject(LinkedHashMap.class);
             init(buildHeadByRowData(exportData0));
@@ -72,6 +73,7 @@ public class ExcelOperatorHolder {
             });
             return values;
         }).collect(Collectors.toList()), writeSheet);
+        return this;
     }
 
 
@@ -84,8 +86,9 @@ public class ExcelOperatorHolder {
                 PathUtils.concat(path, fileName), ContentTypes.EXCEL);
     }
 
-    public void finish() {
+    public ExcelOperatorHolder finish() {
         excelWriter.finish();
+        return this;
     }
 
     public synchronized void init(List<List<String>> head) {
@@ -94,7 +97,7 @@ public class ExcelOperatorHolder {
         writeSheet = EasyExcel.writerSheet("失败结果").build();
         excelWriter = excelWriterBuilder.build();
 
-        initalize = true;
+        initialize = true;
     }
 
     private List<List<String>> buildHeadByRowData(Map<String, Object> rowData) {

@@ -14,4 +14,15 @@ public class AssertUtil {
         }
     }
 
+    public static <T> T requireNonNull(Supplier<T> retSupplier, Supplier<RuntimeException> exSupplier) {
+        if (retSupplier == null) {
+            throw new RuntimeException("supplier can't be null");
+        }
+        T ret = retSupplier.get();
+        if (ret == null) {
+            throw exSupplier.get();
+        }
+        return ret;
+    }
+
 }

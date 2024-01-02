@@ -1,6 +1,7 @@
 package pers.nanahci.reactor.datacenter.core.netty;
 
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataMessage;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcResponse;
 import reactor.core.publisher.Sinks;
 
 import java.util.Map;
@@ -10,29 +11,29 @@ import java.util.concurrent.ThreadLocalRandom;
 public class EndPointSinkPoll {
 
 
-    private final static Map<Integer, Sinks.One<DataMessage>> pendingSinksMap = new ConcurrentHashMap<>();
+    private final static Map<Integer, Sinks.One<RpcResponse<?>>> pendingSinksMap = new ConcurrentHashMap<>();
 
     public EndPointSinkPoll() {
 
     }
 
     public static int alloc(){
-        Sinks.One<DataMessage> sink = Sinks.one();
+        Sinks.One<RpcResponse<?>> sink = Sinks.one();
         return add(sink);
     }
 
 
-    public static int add(Sinks.One<DataMessage> sink) {
+    public static int add(Sinks.One<RpcResponse<?>> sink) {
         int sinksId = generateRandomId();
         pendingSinksMap.put(sinksId, sink);
         return sinksId;
     }
 
-    public static Sinks.One<DataMessage> remove(int sinkId) {
+    public static Sinks.One<RpcResponse<?>> remove(int sinkId) {
         return pendingSinksMap.remove(sinkId);
     }
 
-    public static Sinks.One<DataMessage> get(int sinkId){
+    public static Sinks.One<RpcResponse<?>> get(int sinkId){
         return pendingSinksMap.get(sinkId);
     }
 
