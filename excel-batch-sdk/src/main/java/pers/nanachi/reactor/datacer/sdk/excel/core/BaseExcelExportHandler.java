@@ -8,7 +8,7 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
-public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler<R, T> {
+public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler<R,T> {
 
     private final Type R_;
 
@@ -23,25 +23,25 @@ public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler
             R_ = Object.class;
             T_ = Object.class;
         }
+    }
+
+    public static void main(String[] args) {
 
     }
 
 
-    @Override
     public abstract List<List<String>> getExcelHeaders(T param);
 
-    @Override
     public abstract List<R> getExportData(Integer pageNo, T param);
 
-    @Override
     public abstract Map<String, String> templateFill(T param);
 
-    public final List<R> getExportData0(Integer pageNo, byte[] param) {
+    public final List<R> getExportData0(Integer pageNo, String param) {
         T paramT = JSON.parseObject(param, T_);
         return getExportData(pageNo, paramT);
     }
 
-    public final List<List<String>> getExcelHeaders0(byte[] param) {
+    public final List<List<String>> getExcelHeaders0(String param) {
         T paramT = JSON.parseObject(param, T_);
         return getExcelHeaders(paramT);
     }

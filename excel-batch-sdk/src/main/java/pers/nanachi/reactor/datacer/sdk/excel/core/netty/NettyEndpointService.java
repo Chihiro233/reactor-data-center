@@ -17,7 +17,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import pers.nanachi.reactor.datacer.sdk.excel.core.EventExecutorPoll;
-import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
 import pers.nanachi.reactor.datacer.sdk.excel.utils.SysUtils;
 
 import java.util.concurrent.ThreadFactory;
@@ -39,12 +39,12 @@ public class NettyEndpointService {
     private ChannelFuture serverInstance;
 
 
-    public NettyEndpointService(ExcelHandlerFactory excelHandlerFactory) {
+    public NettyEndpointService(TaskDispatcher taskDispatcher) {
         this.serverBootstrap = new ServerBootstrap();
         this.eventLoopGroupSelector = buildEventLoopGroup();
         this.eventLoopGroupBoss = buildEventLoopBoss();
         this.dataChannelManager = new DataChannelManager();
-        this.dataProcessServiceHandler = new DataProcessServiceHandler(excelHandlerFactory);
+        this.dataProcessServiceHandler = new DataProcessServiceHandler(taskDispatcher);
     }
 
 

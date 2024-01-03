@@ -37,18 +37,5 @@ public class BaseTest {
         Thread.sleep(1000000000L);
     }
 
-    @Test
-    @SneakyThrows
-    public void testReactorClient() {
-        String data = "{\"code\":123,\"msg\":\"dwadawd123\"}";
-        MessageProtocol.Attach attach = new MessageProtocol.Attach();
-        attach.setTaskName("testExcelTask");
-        attach.setTaskType(TaskTypeRecord.EXPORT_TASK);
-        attach.setStage(ExportExecuteStage._getHead);
-        //StringUtils.
-        MessageProtocol messageProtocol = MessageProtocol.buildReqData(data, attach);
-        rpcClient.execute("web-demo", messageProtocol).subscribe();
-        Thread.sleep(1000000L);
-    }
 
 }

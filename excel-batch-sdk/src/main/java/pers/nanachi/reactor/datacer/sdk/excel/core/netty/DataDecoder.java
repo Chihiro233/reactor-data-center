@@ -4,10 +4,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
-import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeEnum;
-import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeFactory;
-
-import java.util.Objects;
 
 @Slf4j
 public class DataDecoder extends LengthFieldBasedFrameDecoder {
@@ -41,13 +37,8 @@ public class DataDecoder extends LengthFieldBasedFrameDecoder {
 
         byte[] dataBytes = new byte[frameLength - NettyCoreConfig.headerLength - NettyCoreConfig.typeLength];
         in.readBytes(dataBytes);
-        Object ret = null;
-        if (Objects.equals(CommandType.Req, type)) {
-            ret = SerializeFactory.deserialize(SerializeEnum.FASTJSON2, dataBytes, RpcRequest.class);
-        } else {
-            ret = SerializeFactory.deserialize(SerializeEnum.FASTJSON2, dataBytes, RpcResponse.class);
-        }
-        builder.data(ret);
+
+        builder.data(dataBytes);
         return builder.build();
     }
 

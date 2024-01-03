@@ -1,10 +1,12 @@
 package pers.nanachi.reactor.datacer.sdk.excel.core;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import pers.nanachi.reactor.datacenter.common.util.AssertUtil;
 import pers.nanachi.reactor.datacer.sdk.excel.annotation.ExcelExport;
 import pers.nanachi.reactor.datacer.sdk.excel.annotation.ExcelImport;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +21,9 @@ public class ExcelHandlerFactory {
 
 
     public ExcelHandlerFactory(List<ExcelBaseHandler> excelHandlers) {
+        if(CollectionUtils.isEmpty(excelHandlers)){
+            return;
+        }
 
         for (ExcelBaseHandler excelHandler : excelHandlers) {
 

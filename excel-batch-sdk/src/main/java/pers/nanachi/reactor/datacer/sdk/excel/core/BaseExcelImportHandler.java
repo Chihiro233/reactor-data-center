@@ -1,5 +1,6 @@
 package pers.nanachi.reactor.datacer.sdk.excel.core;
 
+import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONB;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,8 +24,8 @@ public abstract class BaseExcelImportHandler<T> implements ExcelImportHandler<T>
     public abstract void importExecute(T param);
 
 
-    public final void importExecute(byte[] param) {
-        T paramT = JSONB.parseObject(param, type);
+    public final void importExecute(String param) {
+        T paramT = JSON.parseObject(param,type);
         importExecute(paramT);
     }
 

@@ -53,11 +53,10 @@ public class ExportTaskExecutor extends AbstractExecutor {
         ExcelTaskRequest excelTaskRequest = new ExcelTaskRequest();
 
         excelTaskRequest.setTaskName(template.getName())
-                        .setTaskType(TaskTypeRecord.EXPORT_TASK)
-                        .setBizInfo(bizInfo)
-                        .setBatchNo(task.getBatchNo());
+                .setBizInfo(bizInfo)
+                .setBatchNo(task.getBatchNo());
 
-        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, ExcelTaskRequest.class);
+        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, TaskTypeRecord.EXPORT_TASK);
         request.setData(excelTaskRequest);
 
         // 2. execute
@@ -83,8 +82,12 @@ public class ExportTaskExecutor extends AbstractExecutor {
                     }
                     TypeReference<List<List<String>>> ltr = new TypeReference<>() {
                     };
-                    //sink.next(JSON.parseObject(new String(data.getData()), ltr));
-                    sink.next(new ArrayList<>());
+                    if (data.getData() instanceof JSONArray headArray) {
+                        List<List<String>> res = JSON.parseObject(headArray.toString(), ltr);
+                        sink.next(res);
+                    } else {
+                        sink.error(new RuntimeException("data format isn't array"));
+                    }
                 });
     }
 
@@ -137,6 +140,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
                         sink.next(realData);
                     } catch (Throwable e) {
+                        log.error("request export data error",e);
                         sink.error(e);
                     }
                 });

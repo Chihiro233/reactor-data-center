@@ -17,14 +17,17 @@ public class RpcRequest<T> {
 
         private String serviceId;
 
+        private Integer taskType;
+
         private int retryNum;
 
         private int timeout;
 
     }
 
-    public static <T> RpcRequest<T> get(String serviceId, Class<T> type) {
+    public static <T> RpcRequest<T> get(String serviceId, Integer taskType) {
         Attach attach = new Attach()
+                .setTaskType(taskType)
                 .setServiceId(serviceId)
                 .setRetryNum(3)
                 .setTimeout(3000);

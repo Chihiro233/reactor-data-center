@@ -1,7 +1,6 @@
 package pers.nanachi.reactor.datacer.sdk.excel.core.task;
 
 
-import com.google.common.base.Objects;
 import pers.nanachi.reactor.datacenter.common.util.AssertUtil;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 
@@ -23,10 +22,6 @@ public class TaskDispatcher {
         return AssertUtil.requireNonNull(() -> typeToProcessor.get(taskType), () -> new RuntimeException("task type isn't exist"));
     }
 
-    public void dispatch(MessageProtocol messageProtocol) {
-        MessageProtocol.ProtocolHeader header = messageProtocol.getHeader();
-
-    }
 
 
 }

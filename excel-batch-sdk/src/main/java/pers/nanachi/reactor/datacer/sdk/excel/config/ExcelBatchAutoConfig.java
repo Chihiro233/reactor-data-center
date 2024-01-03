@@ -1,12 +1,14 @@
 package pers.nanachi.reactor.datacer.sdk.excel.config;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.lang.Nullable;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelBaseHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.NettyEndpointService;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelExportTaskProcessor;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelImportTaskProcessor;
 import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
 import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskProcessor;
 
@@ -16,22 +18,33 @@ import java.util.List;
 public class ExcelBatchAutoConfig {
 
     @Bean
-    @ConditionalOnBean(value = ExcelBaseHandler.class)
-    @ConditionalOnProperty(name = "rexcel.batch.role", havingValue = "provider")
-    public ExcelHandlerFactory excelExportHandlerFactory(List<ExcelBaseHandler> excelExportHandlers) {
+    //@ConditionalOnBean(value = ExcelBaseHandler.class)
+    //@ConditionalOnProperty(name = "rexcel.batch.role", havingValue = "provider")
+    public ExcelHandlerFactory excelExportHandlerFactory(@Nullable List<ExcelBaseHandler> excelExportHandlers) {
         return new ExcelHandlerFactory(excelExportHandlers);
     }
 
     @Bean
-    @ConditionalOnBean(value = ExcelHandlerFactory.class)
-    public NettyEndpointService excelExportService(ExcelHandlerFactory excelHandlerFactory) {
-        return new NettyEndpointService(excelHandlerFactory);
+    public ExcelImportTaskProcessor excelImportTaskProcessor(){
+        return new ExcelImportTaskProcessor();
     }
 
     @Bean
-    public TaskDispatcher taskDispatcher(List<TaskProcessor> taskProcessors){
-
+    public ExcelExportTaskProcessor excelExportTaskProcessor(){
+        return new ExcelExportTaskProcessor();
     }
+
+
+    @Bean
+    public TaskDispatcher taskDispatcher(List<TaskProcessor> taskProcessors) {
+        return new TaskDispatcher(taskProcessors);
+    }
+
+    @Bean
+    public NettyEndpointService excelExportService(TaskDispatcher taskDispatcher) {
+        return new NettyEndpointService(taskDispatcher);
+    }
+
 
 
 }

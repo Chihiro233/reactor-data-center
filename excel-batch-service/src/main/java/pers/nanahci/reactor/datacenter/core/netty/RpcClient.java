@@ -11,7 +11,6 @@ import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.stereotype.Component;
 import pers.nanachi.reactor.datacer.sdk.excel.core.EventExecutorPoll;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.*;
-import pers.nanachi.reactor.datacer.sdk.excel.param.ExcelTaskRequest;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.netty.Connection;
@@ -63,65 +62,9 @@ public class RpcClient {
     }
 
 
-    public Mono<byte[]> setupInbound(Connection connection) {
-        return connection.inbound()
-                .receiveObject()
-                .take(1)
-                .last()
-                .doOnNext(value -> {
-                    log.info("inbound next value is {}", value);
-                })
-                .onErrorResume(t -> {
-                    log.info("client connect error:", t);
-                    return Mono.empty();
-                })
-                .cast(MessageProtocol.class)
-                .flatMap(dataMessage -> {
-                    log.info("receive message :[{}]", JSON.toJSONString(dataMessage));
-                    return dispatch(dataMessage);
-                }).doFinally(signalType -> {
-                    connection.dispose();
-                });
-    }
-
-    public void setupOutbound(Connection connection, Object dataMessage) {
-        connection.outbound()
-                .sendObject(dataMessage)
-                .then().subscribe();
-    }
-
-    private Mono<byte[]> dispatch(MessageProtocol msg) {
-        switch (msg.getCommand()) {
-            case CommandType.Req -> {
-                // TODO
-                return Mono.empty();
-            }
-            case CommandType.Resp -> {
-                // 1. check whether success
-                if (!msg.whetherSuccess()) {
-                    return Mono.error(new RuntimeException("export request fail"));
-                }
-                // 2. start to check
-                return Mono.just(msg.getData());
-            }
-        }
-        log.info("no any message");
-        return Mono.empty();
-    }
 
 
-    private static void initPipeline(ChannelPipeline pipeline,
-                                     DataChannelManager dataChannelManager, DataProcessClientHandler dataProcessClientHandler) {
-        pipeline.addLast(EventExecutorPoll.DEFAULT_EVENT_EXECUTOR,
-                new DataDecoder(NettyCoreConfig.maxFrameLength,
-                        NettyCoreConfig.lengthFieldOffset, NettyCoreConfig.lengthFieldLength,
-                        NettyCoreConfig.lengthAdjustment, NettyCoreConfig.initialBytesToStrip),
-                new DataEncoder(),
-                dataChannelManager,
-                new IdleStateHandler(0, 0,
-                        NettyCoreConfig.maxIdleTime),
-                dataProcessClientHandler);
-    }
+
 
     private void initPipeline(ChannelPipeline pipeline) {
         pipeline.addLast(EventExecutorPoll.DEFAULT_EVENT_EXECUTOR,

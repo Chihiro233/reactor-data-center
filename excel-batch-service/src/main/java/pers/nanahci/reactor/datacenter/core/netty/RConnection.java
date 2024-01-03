@@ -1,11 +1,14 @@
 package pers.nanahci.reactor.datacenter.core.netty;
 
+import com.alibaba.fastjson2.JSON;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.CommandType;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcResponse;
+import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeEnum;
+import pers.nanachi.reactor.datacer.sdk.excel.core.seralize.SerializeFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.netty.Connection;
@@ -36,7 +39,8 @@ public class RConnection {
                     if (inboundSink == null) {
                         return;
                     }
-                    inboundSink.tryEmitValue((RpcResponse<?>) value.getData());
+                    RpcResponse<?> rpcResponse = JSON.parseObject(value.getData(), RpcResponse.class);
+                    inboundSink.tryEmitValue(rpcResponse);
                 })
                 .onErrorResume(t -> {
                     log.error("error info", t);
@@ -58,8 +62,9 @@ public class RConnection {
                 = MessageProtocol.builder();
         MessageProtocol.ProtocolHeader header = new MessageProtocol.ProtocolHeader();
         header.setMsgId(1L);
+        header.setTaskType(request.getAttach().getTaskType());
         builder.command(CommandType.Req);
-        builder.data(request.getData());
+        builder.data(SerializeFactory.serialize(SerializeEnum.FASTJSON2, request.getData()));
         builder.header(header);
 
         connection.outbound()
