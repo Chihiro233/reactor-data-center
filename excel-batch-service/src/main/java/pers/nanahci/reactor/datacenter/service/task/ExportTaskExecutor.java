@@ -10,22 +10,18 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
 import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
 import pers.nanachi.reactor.datacer.sdk.excel.param.ExcelTaskRequest;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
-import pers.nanahci.reactor.datacenter.core.reactor.ReactorWebClient;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,14 +32,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExportTaskExecutor extends AbstractExecutor {
 
 
-    private final ReactorWebClient reactorWebClient;
-
     private final RpcClient rpcClient;
 
 
     private final BatchTaskConfig batchTaskConfig;
 
-    private final Map<String, ExcelOperatorHolder> excelOperatorHolderMap = new ConcurrentHashMap<>();
+    private final Map<Long, ExcelOperatorHolder> excelOperatorHolderMap = new ConcurrentHashMap<>();
 
     public Mono<Integer> execute(TemplateTaskDO task, TemplateModel templateModel) {
 
@@ -54,6 +48,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
         excelTaskRequest.setTaskName(template.getName())
                 .setBizInfo(bizInfo)
+                .setPageNo(1)
                 .setBatchNo(task.getBatchNo());
 
         RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, TaskTypeRecord.EXPORT_TASK);
@@ -62,9 +57,9 @@ public class ExportTaskExecutor extends AbstractExecutor {
         // 2. execute
         return requestHead(request)
                 .flatMap(headData -> Mono.fromRunnable(() -> {
-                    ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(),
-                            batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
-                                    buildFileName(batchNo), batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
+                    ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getId(),
+                            taskId -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
+                                    buildFileName(task.getBatchNo() + "-" + taskId), batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
                     operatorHolder.init(headData);
                 }))
                 .then(requestData(template, task, request));
@@ -105,9 +100,10 @@ public class ExportTaskExecutor extends AbstractExecutor {
                                         return dynamicCall(task, request);
                                     }
                                 }).doFinally(signalType -> {
-                                    if (excelOperatorHolderMap.containsKey(task.getBatchNo())) {
-                                        ExcelOperatorHolder excelOperatorHolder = excelOperatorHolderMap.get(task.getBatchNo());
-                                        excelOperatorHolder.finish().upload(FileStoreType.S3);
+                                    if (excelOperatorHolderMap.containsKey(task.getId())) {
+                                        ExcelOperatorHolder excelOperatorHolder = excelOperatorHolderMap.get(task.getId());
+                                        excelOperatorHolder.finish().upload(FileStoreType.S3, true);
+                                        excelOperatorHolder.clear();
                                     }
                                 }).then(Mono.fromSupplier(() -> {
                                     log.info("access this position");
@@ -123,7 +119,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
                 .handle((response, sink) -> {
                     try {
                         if (!response.isSuccess()) {
-                            throw new RuntimeException("request data fail");
+                            throw new RuntimeException("request data fail"+response.getMsg());
                         }
                         List<JSONObject> realData;
                         Object data = response.getData();
@@ -132,15 +128,15 @@ public class ExportTaskExecutor extends AbstractExecutor {
                         } else {
                             throw new RuntimeException("request data isn't array");
                         }
-                        ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getBatchNo(),
-                                batchNo -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
-                                        buildFileName(batchNo), batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
+                        ExcelOperatorHolder operatorHolder = excelOperatorHolderMap.computeIfAbsent(task.getId(),
+                                taskId -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
+                                        buildFileName(task.getBatchNo()) + "-" + taskId, batchTaskConfig.getPath(), batchTaskConfig.getBucket()));
 
                         operatorHolder.writeExportData(realData);
 
                         sink.next(realData);
                     } catch (Throwable e) {
-                        log.error("request export data error",e);
+                        log.error("request export data error", e);
                         sink.error(e);
                     }
                 });

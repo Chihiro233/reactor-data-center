@@ -46,7 +46,7 @@ public class SubscribeErrorHolder {
                 })).concatWith(Mono.defer(() -> {
                     if (Objects.nonNull(excelOperatorHolder)) {
                         excelOperatorHolder.finish();
-                        String errUrl = excelOperatorHolder.upload(FileStoreType.S3);
+                        String errUrl = excelOperatorHolder.upload(FileStoreType.S3,true);
                         log.info("errUrl:[{}]", errUrl);
                         TemplateService ts = SpringContextUtil.getBean(TemplateService.class);
                         return ts.saveErrFileUrl(taskId, errUrl);

@@ -5,7 +5,9 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.TypeReference;
 import javafx.util.Pair;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
@@ -14,6 +16,7 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class ExcelOperatorHolder {
 
 
@@ -30,6 +33,8 @@ public class ExcelOperatorHolder {
     private ExcelWriter excelWriter;
 
     private WriteSheet writeSheet;
+
+    private List<List<String>> headList;
 
     private volatile boolean initialize;
 
@@ -63,27 +68,48 @@ public class ExcelOperatorHolder {
         }
         if (!initialize) {
             JSONObject jsonObject = exportData.get(0);
-            Map exportData0 = jsonObject.toJavaObject(LinkedHashMap.class);
+            TypeReference<LinkedHashMap<String,Object>> ltr = new TypeReference<>(LinkedHashMap.class,String.class,Object.class) {
+            };
+            LinkedHashMap<String, Object> exportData0 = jsonObject.to(ltr);
             init(buildHeadByRowData(exportData0));
         }
         excelWriter.write(() -> exportData.stream().map(jsonObject -> {
             Collection<Object> values = new ArrayList<>();
-            jsonObject.forEach((k, v) -> {
-                values.add(v);
-            });
+            for (List<String> head : headList) {
+                if(CollectionUtils.isEmpty(head)){
+                    values.add(null);
+                }else{
+                    String headKey = head.get(head.size()-1);
+                    Object v = jsonObject.get(headKey);
+                    values.add(v);
+                }
+
+            }
             return values;
         }).collect(Collectors.toList()), writeSheet);
         return this;
     }
 
+    public void clear() {
+        File file = new File(tempPath + fileName);
+        if (file.exists()) {
+            if (!file.delete()) {
+                log.error("file delete fail");
+            }
+        }
+    }
 
-    public String upload(FileStoreType type) {
+    public String upload(FileStoreType type, boolean clear) {
         if (Objects.equals(type, FileStoreType.LOCAL)) {
             return "";
         }
         FileClient fileClient = FileClientFactory.get(type);
-        return fileClient.uploadLocalFile(PathUtils.concat(tempPath, fileName),
+        String url = fileClient.uploadLocalFile(PathUtils.concat(tempPath, fileName),
                 PathUtils.concat(path, fileName), ContentTypes.EXCEL);
+        if (clear && Objects.equals(type, FileStoreType.LOCAL)) {
+            clear();
+        }
+        return url;
     }
 
     public ExcelOperatorHolder finish() {
@@ -96,7 +122,7 @@ public class ExcelOperatorHolder {
                 .head(head);
         writeSheet = EasyExcel.writerSheet("失败结果").build();
         excelWriter = excelWriterBuilder.build();
-
+        headList = head;
         initialize = true;
     }
 
