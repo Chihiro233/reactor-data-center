@@ -52,6 +52,8 @@ public class ExportTaskExecutor extends AbstractExecutor {
                 .setBatchNo(task.getBatchNo());
 
         RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, TaskTypeRecord.EXPORT_TASK);
+        request.getAttach().setTimeout(200);
+        request.getAttach().setRetryNum(3);
         request.setData(excelTaskRequest);
 
         // 2. execute
@@ -119,7 +121,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
                 .handle((response, sink) -> {
                     try {
                         if (!response.isSuccess()) {
-                            throw new RuntimeException("request data fail"+response.getMsg());
+                            throw new RuntimeException("request data fail" + response.getMsg());
                         }
                         List<JSONObject> realData;
                         Object data = response.getData();
