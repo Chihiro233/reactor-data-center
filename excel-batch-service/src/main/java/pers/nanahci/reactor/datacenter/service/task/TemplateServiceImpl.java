@@ -94,10 +94,9 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public Flux<TemplateModel> getUnComplete() {
-        //int shardTotal = XxlJobContext.getXxlJobContext().getShardTotal();
-        //int shardIndex = XxlJobContext.getXxlJobContext().getShardIndex();
-        int shardTotal = 1;
-        int shardIndex = 0;
+        // it's better to get it by from the list of redis instead
+        int shardTotal = XxlJobContext.getXxlJobContext().getShardTotal();
+        int shardIndex = XxlJobContext.getXxlJobContext().getShardIndex();
         return r2dbcEntityTemplate.select(TemplateTaskDO.class)
                 .matching(query(where("status")
                         .in(TaskStatusEnum.UN_START.getValue(), TaskStatusEnum.UN_START_RETRY.getValue()))
@@ -152,31 +151,33 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     public void execute(TemplateModel templateModel) {
         Flux.fromIterable(templateModel.getTaskList())
-                .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
+                .parallel()
+                .runOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_SUBSCRIBE_EXECUTOR))
                 .subscribe(task -> {
-                    // try lock
-                    if (templateModel.whetherRetry() && task.getRetryNum() >= templateModel.getMaxRetry()) {
+                    // if the retry policy is enabled and the current retry count is greater than the maximum retry count, it simply returns
+                    if (templateModel.whetherRetry() && task.getRetryNum() > templateModel.getMaxRetry()) {
                         return;
                     }
                     String key = "templateTask:batchId:" + task.getId();
                     RLockReactive lock = redissonReactiveClient.getLock(key);
+                    // need to mock threadId
                     long mockTid = ThreadLocalRandom.current().nextLong();
                     lock.tryLock(2, 300, TimeUnit.SECONDS, mockTid)
                             .filterWhen(result -> {
                                 log.info("filterWhen线程:[{}]", Thread.currentThread());
                                 if (!result) {
-                                    log.warn("锁已经被占用,锁key:[{}]", key);
+                                    log.warn("lock exist!,lock-key:[{}]", key);
                                 } else {
-                                    log.debug("加锁成功,锁key:[{}]", key);
+                                    log.debug("lock success,lock-key:[{}]", key);
                                 }
                                 return Mono.just(result);
                             })
-                            .then(preProcess(task))
-                            .then(executeTask(task, templateModel) // test TODO
-                                    .onErrorResume(e -> failTask(task, e).then(Mono.error(e))))
-                            .flatMap(errRows -> postProcess(errRows, task, templateModel))
+                            .then(preProcess(task)) // 任务执行前的处理
+                            .then(executeTask(task, templateModel) // 执行任务
+                                    .onErrorResume(e -> failTask(task, e).then(Mono.error(e)))) // 任务失败处理
+                            .flatMap(errRows -> postProcess(errRows, task, templateModel)) // 任务后置处理
                             .doFinally((signalType -> {
-                                lock.unlock(mockTid).subscribe();
+                                lock.unlock(mockTid).subscribe(); // 解锁
                             }))
                             .subscribe();
                 });

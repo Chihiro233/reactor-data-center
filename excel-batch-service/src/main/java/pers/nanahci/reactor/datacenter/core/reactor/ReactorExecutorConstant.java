@@ -10,11 +10,11 @@ public interface ReactorExecutorConstant {
 
     Executor DEFAULT_SUBSCRIBE_EXECUTOR =
             new ThreadPoolExecutor(10, 20, 20,
-                    TimeUnit.SECONDS, new ArrayBlockingQueue<>(1), (t) -> new Thread(t, "reactor-subscribe-thread"));
+                    TimeUnit.SECONDS, new ArrayBlockingQueue<>(100), (t) -> new Thread(t, "reactor-subscribe-thread"));
 
     Executor DEFAULT_ERROR_EXECUTOR =
             new ThreadPoolExecutor(10, 10, 20,
-                    TimeUnit.SECONDS, new ArrayBlockingQueue<>(1), (t) -> new Thread(t, "error-handle-thread"));
+                    TimeUnit.SECONDS, new ArrayBlockingQueue<>(100), (t) -> new Thread(t, "error-handle-thread"));
 
     Executor SINGLE_ERROR_SINK_EXECUTOR =
             new ThreadPoolExecutor(1, 1, 0,
