@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.N;
 import org.codehaus.groovy.jsr223.GroovyScriptEngineImpl;
 import org.redisson.api.RLockReactive;
 import org.redisson.api.RedissonReactiveClient;
@@ -44,8 +45,11 @@ import pers.nanahci.reactor.datacenter.service.file.FileService;
 import pers.nanahci.reactor.datacenter.service.task.constant.TaskOperationEnum;
 import pers.nanahci.reactor.datacenter.service.task.constant.TaskStatusEnum;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import javax.script.ScriptEngine;
@@ -53,6 +57,8 @@ import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.io.SequenceInputStream;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -183,15 +189,23 @@ public class TemplateServiceImpl implements TemplateService {
                 });
     }
 
+    @SneakyThrows
     public static void main(String[] args) {
-        Flux<Integer> flux = Flux.just(1, 2, 0, 4, 5)
-                .flatMap(i -> Mono.just(10 / i))
-                .onErrorContinue((error, value) -> {
-                    System.err.println("Encountered error: " + error.getMessage());
-                    System.err.println("Failed value: " + value);
-                });
+        Sinks.Many<Integer> sinkOne = Sinks.many().multicast().onBackpressureBuffer();
+        Flux<Integer> flux = sinkOne.asFlux();
+        Flux<Integer> share = flux.share();
 
-        flux.subscribe(System.out::println);
+        flux.subscribe(x -> {
+            System.out.println(x);
+        });
+        share.subscribe(x->{
+            System.out.println("share-"+x);
+        });
+        for(int i=0;i<10;i++){
+            sinkOne.tryEmitNext(i);
+        }
+        Thread.sleep(5000);
+        System.out.println("end");
     }
 
     @Override
@@ -336,12 +350,11 @@ public class TemplateServiceImpl implements TemplateService {
         return transactionalOperator.transactional(r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                         Update.update("status", TaskStatusEnum.FAIL.getValue())
                                 .set("end_time", LocalDateTime.now()), TemplateTaskDO.class)
-                .filterWhen(uc -> {
+                .doOnNext(uc -> {
                     // update count
                     if (uc == 0) {
-                        return Mono.error(new RuntimeException("更新失败"));
+                        throw new RuntimeException("更新失败");
                     }
-                    return Mono.just(true);
                 }).then(operateTaskInstance(0, e, task, TaskOperationEnum.FAIL)));
 
     }
@@ -350,12 +363,10 @@ public class TemplateServiceImpl implements TemplateService {
         return transactionalOperator.transactional(r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                         Update.update("status", TaskStatusEnum.WORKING.getValue())
                                 .set("last_start_time", LocalDateTime.now()), TemplateTaskDO.class)
-                .filterWhen(uc -> {
-                    // update count
+                .doOnNext((uc) -> {
                     if (uc == 0) {
-                        return Mono.error(new RuntimeException("更新失败"));
+                        throw new RuntimeException("update task status fail");
                     }
-                    return Mono.just(true);
                 }).then(operateTaskInstance(0, null, task, TaskOperationEnum.INSERT)));
     }
 
@@ -363,12 +374,11 @@ public class TemplateServiceImpl implements TemplateService {
         return transactionalOperator.transactional(r2dbcEntityTemplate.update(Query.query(Criteria.where("id").is(task.getId())),
                         Update.update("status", TaskStatusEnum.COMPLETE.getValue())
                                 .set("end_time", LocalDateTime.now()), TemplateTaskDO.class)
-                .filterWhen(uc -> {
+                .doOnNext(uc -> {
                     // update count
                     if (uc == 0) {
-                        return Mono.error(new RuntimeException("更新失败"));
+                        throw new RuntimeException("更新失败");
                     }
-                    return Mono.just(true);
                 }).then(operateTaskInstance(errRows, null, task, TaskOperationEnum.COMPLETE)));
     }
 

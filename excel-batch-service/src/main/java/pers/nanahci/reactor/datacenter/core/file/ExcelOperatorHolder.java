@@ -94,9 +94,10 @@ public class ExcelOperatorHolder {
         File file = new File(tempPath + fileName);
         if (file.exists()) {
             if (!file.delete()) {
-                log.error("file delete fail");
+                log.error("temp file delete fail");
             }
         }
+        log.info("temp file delete success");
     }
 
     public String upload(FileStoreType type, boolean clear) {
@@ -106,7 +107,7 @@ public class ExcelOperatorHolder {
         FileClient fileClient = FileClientFactory.get(type);
         String url = fileClient.uploadLocalFile(PathUtils.concat(tempPath, fileName),
                 PathUtils.concat(path, fileName), ContentTypes.EXCEL);
-        if (clear && Objects.equals(type, FileStoreType.LOCAL)) {
+        if (clear && !Objects.equals(type, FileStoreType.LOCAL)) {
             clear();
         }
         return url;

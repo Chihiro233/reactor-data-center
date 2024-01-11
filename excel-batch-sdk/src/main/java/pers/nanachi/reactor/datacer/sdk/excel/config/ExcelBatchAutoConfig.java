@@ -2,15 +2,14 @@ package pers.nanachi.reactor.datacer.sdk.excel.config;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.lang.Nullable;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelBaseHandler;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.NettyEndpointService;
-import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelExportTaskProcessor;
-import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelImportTaskProcessor;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelExportTaskTypeProcessor;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.ExcelImportTaskTypeProcessor;
 import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
-import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskProcessor;
+import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskTypeProcessor;
 
 import java.util.List;
 
@@ -25,19 +24,19 @@ public class ExcelBatchAutoConfig {
     }
 
     @Bean
-    public ExcelImportTaskProcessor excelImportTaskProcessor(){
-        return new ExcelImportTaskProcessor();
+    public ExcelImportTaskTypeProcessor excelImportTaskProcessor(){
+        return new ExcelImportTaskTypeProcessor();
     }
 
     @Bean
-    public ExcelExportTaskProcessor excelExportTaskProcessor(){
-        return new ExcelExportTaskProcessor();
+    public ExcelExportTaskTypeProcessor excelExportTaskProcessor(){
+        return new ExcelExportTaskTypeProcessor();
     }
 
 
     @Bean
-    public TaskDispatcher taskDispatcher(List<TaskProcessor> taskProcessors) {
-        return new TaskDispatcher(taskProcessors);
+    public TaskDispatcher taskDispatcher(List<TaskTypeProcessor> taskTypeProcessors) {
+        return new TaskDispatcher(taskTypeProcessors);
     }
 
     @Bean

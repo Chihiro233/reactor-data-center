@@ -20,6 +20,7 @@ import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
@@ -63,7 +64,11 @@ public class ImportTaskExecutor extends AbstractExecutor {
                     .flatMap(rowDataList -> {
                         request.getData().setBizInfo(JSON.toJSONString(rowDataList));
                         return rpcClient.execute(request)
-                                .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.SINGLE_ERROR_SINK_EXECUTOR))
+                                .doOnNext(response -> {
+                                    if (!response.isSuccess()) {
+                                        throw new RuntimeException("import task fail, case:" + response.getMsg());
+                                    }
+                                })
                                 .onErrorResume((err) -> {
                                     if (CollectionUtils.isEmpty(rowDataList)) {
                                         return Mono.empty();
@@ -79,7 +84,6 @@ public class ImportTaskExecutor extends AbstractExecutor {
 
         } else {
             rpcFlux = excelFile.flatMap(rowData -> {
-                // TODO 执行顺序会不会有问题
                 request.getData().setBizInfo(JSON.toJSONString(rowData));
                 return rpcClient.execute(request)
                         .handle((response, sink) -> {
@@ -95,8 +99,11 @@ public class ImportTaskExecutor extends AbstractExecutor {
             });
         }
         rpcFlux = rpcFlux.doFinally(signalType -> {
-            log.info("emitComplete");
-            errSink.tryEmitComplete();
+            if(Objects.equals(signalType, SignalType.ON_ERROR)||Objects.equals(signalType,SignalType.CANCEL)){
+                errSink.tryEmitError(new RuntimeException("rpc flux error or canceled"));
+            }else{
+                errSink.tryEmitComplete();
+            }
         });
         return Mono.when(rpcFlux, errFlux).then(
                 Mono.fromSupplier(ati::get)

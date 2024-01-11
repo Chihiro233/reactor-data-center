@@ -8,7 +8,7 @@ import pers.nanachi.reactor.datacer.sdk.excel.core.ExcelHandlerFactory;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 import pers.nanachi.reactor.datacer.sdk.excel.param.ExcelTaskRequest;
 
-public class ExcelImportTaskProcessor implements TaskProcessor {
+public class ExcelImportTaskTypeProcessor implements TaskTypeProcessor {
 
     @Resource
     private ExcelHandlerFactory excelHandlerFactory;

@@ -19,9 +19,8 @@ public class ExcelHandlerFactory {
 
     private final Map<String, ExcelImportHandler<?>> EXCEL_IMPORT_HANDLE_MAP = new ConcurrentHashMap<>();
 
-
     public ExcelHandlerFactory(List<ExcelBaseHandler> excelHandlers) {
-        if(CollectionUtils.isEmpty(excelHandlers)){
+        if (CollectionUtils.isEmpty(excelHandlers)) {
             return;
         }
 
@@ -32,14 +31,20 @@ public class ExcelHandlerFactory {
                 ExcelExport annotation = excelHandler.getClass().getAnnotation(ExcelExport.class);
                 AssertUtil.isTrue(() -> (annotation != null && annotation.value() != null), "ExcelExport can't be null");
                 String exportTaskName = annotation.value();
+                if (EXCEL_EXPORT_HANDLE_MAP.containsKey(exportTaskName)) {
+                    throw new RuntimeException("duplicate export task name: " + exportTaskName);
+                }
                 EXCEL_EXPORT_HANDLE_MAP.put(exportTaskName, exportHandler);
 
             } else if (excelHandler instanceof ExcelImportHandler<?> importHandler) {
 
                 ExcelImport annotation = excelHandler.getClass().getAnnotation(ExcelImport.class);
                 AssertUtil.isTrue(() -> (annotation != null && annotation.value() != null), "ExcelImport can't be null");
-                String exportTaskName = annotation.value();
-                EXCEL_IMPORT_HANDLE_MAP.put(exportTaskName, importHandler);
+                String importTaskName = annotation.value();
+                if (EXCEL_IMPORT_HANDLE_MAP.containsKey(importTaskName)) {
+                    throw new RuntimeException("duplicate import task name: " + importTaskName);
+                }
+                EXCEL_IMPORT_HANDLE_MAP.put(importTaskName, importHandler);
 
             }
 

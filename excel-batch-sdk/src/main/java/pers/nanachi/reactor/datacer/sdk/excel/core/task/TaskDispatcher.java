@@ -2,7 +2,6 @@ package pers.nanachi.reactor.datacer.sdk.excel.core.task;
 
 
 import pers.nanachi.reactor.datacenter.common.util.AssertUtil;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.MessageProtocol;
 
 import java.util.List;
 import java.util.Map;
@@ -10,15 +9,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskDispatcher {
 
-    private final Map<Integer, TaskProcessor> typeToProcessor = new ConcurrentHashMap<>();
+    private final Map<Integer, TaskTypeProcessor> typeToProcessor = new ConcurrentHashMap<>();
 
-    public TaskDispatcher(List<TaskProcessor> taskProcessors) {
-        for (TaskProcessor taskProcessor : taskProcessors) {
-            typeToProcessor.put(taskProcessor.type(), taskProcessor);
+    public TaskDispatcher(List<TaskTypeProcessor> taskTypeProcessors) {
+        for (TaskTypeProcessor taskTypeProcessor : taskTypeProcessors) {
+            typeToProcessor.put(taskTypeProcessor.type(), taskTypeProcessor);
         }
     }
 
-    public TaskProcessor route(Integer taskType) {
+    public TaskTypeProcessor route(Integer taskType) {
         return AssertUtil.requireNonNull(() -> typeToProcessor.get(taskType), () -> new RuntimeException("task type isn't exist"));
     }
 

@@ -10,6 +10,7 @@ import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import pers.nanachi.reactor.datacenter.common.util.SpringContextUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
@@ -32,18 +33,14 @@ public class SubscribeErrorHolder {
 
     public void subscribeError(Flux<Pair<Map<String, Object>, Throwable>> flux, String fileName, Long taskId) {
         flux.buffer(1000)
-                .doOnNext(d -> {
-                    log.info("收到错误消息");
-                })
-                .publishOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_ERROR_EXECUTOR))
-                .flatMap(data -> Mono.defer(() -> {
+                .subscribeOn(Schedulers.fromExecutor(ReactorExecutorConstant.DEFAULT_ERROR_EXECUTOR))
+                .doOnNext(data -> {
                     if (excelOperatorHolder == null) {
                         BatchTaskConfig config = SpringContextUtil.getBean(BatchTaskConfig.class);
                         excelOperatorHolder = ExcelFileUtils.createOperatorHolder(config.getTempPath(), fileName, config.getErrPath(), config.getBucket());
                     }
                     excelOperatorHolder.writeError(data);
-                    return Mono.empty();
-                })).concatWith(Mono.defer(() -> {
+                }).then(Mono.defer(() -> {
                     if (Objects.nonNull(excelOperatorHolder)) {
                         excelOperatorHolder.finish();
                         String errUrl = excelOperatorHolder.upload(FileStoreType.S3,true);
@@ -53,7 +50,7 @@ public class SubscribeErrorHolder {
                     }
                     return Mono.empty();
                 })).doFinally(signalType -> {
-                    excelOperatorHolder.finish();
+                    excelOperatorHolder.finish().clear();
                 }).subscribe();
     }
 

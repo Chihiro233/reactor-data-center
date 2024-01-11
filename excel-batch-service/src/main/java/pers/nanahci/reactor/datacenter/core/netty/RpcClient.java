@@ -52,8 +52,8 @@ public class RpcClient {
                             .doOnSuccess(connection -> {
                                 log.info("connect success!!!");
                             })
-                            .doOnError(err->{
-                                log.info("connect error:",err);
+                            .doOnError(err -> {
+                                log.info("connect error:", err);
                             })
                             .map(connection -> new RConnection(EndPointSinkPoll.alloc(), connection))
                             .flatMap(connection -> {
