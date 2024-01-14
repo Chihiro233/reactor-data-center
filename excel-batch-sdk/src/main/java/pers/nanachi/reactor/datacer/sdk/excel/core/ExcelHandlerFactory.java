@@ -15,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExcelHandlerFactory {
 
 
-    private final Map<String, ExcelExportHandler<?, ?>> EXCEL_EXPORT_HANDLE_MAP = new ConcurrentHashMap<>();
+    private final Map<String, BaseExcelExportHandler<?, ?>> EXCEL_EXPORT_HANDLE_MAP = new ConcurrentHashMap<>();
 
-    private final Map<String, ExcelImportHandler<?>> EXCEL_IMPORT_HANDLE_MAP = new ConcurrentHashMap<>();
+    private final Map<String, BaseExcelImportHandler<?>> EXCEL_IMPORT_HANDLE_MAP = new ConcurrentHashMap<>();
 
     public ExcelHandlerFactory(List<ExcelBaseHandler> excelHandlers) {
         if (CollectionUtils.isEmpty(excelHandlers)) {
@@ -26,7 +26,7 @@ public class ExcelHandlerFactory {
 
         for (ExcelBaseHandler excelHandler : excelHandlers) {
 
-            if (excelHandler instanceof ExcelExportHandler<?, ?> exportHandler) {
+            if (excelHandler instanceof BaseExcelExportHandler<?, ?> exportHandler) {
 
                 ExcelExport annotation = excelHandler.getClass().getAnnotation(ExcelExport.class);
                 AssertUtil.isTrue(() -> (annotation != null && annotation.value() != null), "ExcelExport can't be null");
@@ -36,7 +36,7 @@ public class ExcelHandlerFactory {
                 }
                 EXCEL_EXPORT_HANDLE_MAP.put(exportTaskName, exportHandler);
 
-            } else if (excelHandler instanceof ExcelImportHandler<?> importHandler) {
+            } else if (excelHandler instanceof BaseExcelImportHandler<?> importHandler) {
 
                 ExcelImport annotation = excelHandler.getClass().getAnnotation(ExcelImport.class);
                 AssertUtil.isTrue(() -> (annotation != null && annotation.value() != null), "ExcelImport can't be null");
@@ -52,11 +52,11 @@ public class ExcelHandlerFactory {
         }
     }
 
-    public ExcelExportHandler<?, ?> getExportHandler(String exportTaskName) {
+    public BaseExcelExportHandler<?, ?> getExportHandler(String exportTaskName) {
         return EXCEL_EXPORT_HANDLE_MAP.get(exportTaskName);
     }
 
-    public ExcelImportHandler<?> getImportHandler(String exportTaskName) {
+    public BaseExcelImportHandler<?> getImportHandler(String exportTaskName) {
         return EXCEL_IMPORT_HANDLE_MAP.get(exportTaskName);
     }
 

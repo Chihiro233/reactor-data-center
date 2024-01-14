@@ -61,7 +61,6 @@ public class RConnection {
         MessageProtocol.MessageProtocolBuilder builder
                 = MessageProtocol.builder();
         MessageProtocol.ProtocolHeader header = new MessageProtocol.ProtocolHeader();
-        header.setMsgId(1L);
         header.setTaskType(request.getAttach().getTaskType());
         builder.command(CommandType.Req);
         builder.data(SerializeFactory.serialize(SerializeEnum.FASTJSON2, request.getData()));

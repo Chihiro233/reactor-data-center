@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 @Getter
 @ToString
 @Accessors(chain = true)
@@ -24,6 +26,9 @@ public class MessageProtocol {
     @Accessors(chain = true)
     public static class ProtocolHeader {
 
+        {
+            msgId = Long.parseLong(String.valueOf(System.currentTimeMillis()) + ThreadLocalRandom.current().nextInt(0,50000));
+        }
 
         private long msgId;
 
@@ -32,6 +37,5 @@ public class MessageProtocol {
 
 
     }
-
 
 }

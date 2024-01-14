@@ -19,27 +19,33 @@ public class DataDecoder extends LengthFieldBasedFrameDecoder {
     protected MessageProtocol decode(ChannelHandlerContext ctx, ByteBuf inEx) throws Exception {
         // 长度
         ByteBuf in = (ByteBuf) super.decode(ctx, inEx);
-        if (in == null) {
-            return null;
-        }
-        if (in.readableBytes() < NettyCoreConfig.headSize) {
-            return null;
-        }
-        int frameLength = in.readInt();
-        if (in.readableBytes() < frameLength) {
-            return null;
-        }
-        MessageProtocol.MessageProtocolBuilder builder = MessageProtocol.builder();
+        try {
+            if (in == null) {
+                return null;
+            }
+            if (in.readableBytes() < NettyCoreConfig.headSize) {
+                return null;
+            }
+            int frameLength = in.readInt();
+            if (in.readableBytes() < frameLength) {
+                return null;
+            }
+            MessageProtocol.MessageProtocolBuilder builder = MessageProtocol.builder();
 
-        byte type = in.readByte();
-        builder.command(type);
-        builder.header(readHeader(in));
+            byte type = in.readByte();
+            builder.command(type);
+            builder.header(readHeader(in));
 
-        byte[] dataBytes = new byte[frameLength - NettyCoreConfig.headerLength - NettyCoreConfig.typeLength];
-        in.readBytes(dataBytes);
+            byte[] dataBytes = new byte[frameLength - NettyCoreConfig.headerLength - NettyCoreConfig.typeLength];
+            in.readBytes(dataBytes);
+            builder.data(dataBytes);
+            return builder.build();
+        } finally {
+            if (in != null) {
+                in.release();
+            }
+        }
 
-        builder.data(dataBytes);
-        return builder.build();
     }
 
     private MessageProtocol.ProtocolHeader readHeader(ByteBuf in) {

@@ -48,7 +48,7 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<Messa
 
             MessageProtocol.ProtocolHeader respHeader = new MessageProtocol.ProtocolHeader();
             respHeader.setTaskType(header.getTaskType())
-                    .setMsgId(1L);
+                    .setMsgId(msg.getHeader().getMsgId() + 1);
 
             retMsg = MessageProtocol.builder()
                     .command(CommandType.Resp)
@@ -68,7 +68,7 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<Messa
     private MessageProtocol handleException(MessageProtocol msg, Throwable cause) {
         MessageProtocol.ProtocolHeader header = new MessageProtocol.ProtocolHeader();
         header.setTaskType(msg.getHeader().getTaskType())
-                .setMsgId(1L);
+                .setMsgId(msg.getHeader().getMsgId() + 1);
 
         RpcResponse<?> response = RpcResponse.builder()
                 .msg(cause.getMessage())

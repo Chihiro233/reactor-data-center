@@ -25,6 +25,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,19 +93,6 @@ public class ExportTaskExecutor extends AbstractExecutor {
                 });
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
-        Flux.create((sink) -> {
-                    for (int i = 0; i < 100; i++) {
-                        sink.next(i);
-                    }
-                })
-                .expand(num -> {
-                    log.info("num is {}", num);
-                    return Mono.just((int) num + 1);
-                }).subscribe();
-        Thread.sleep(10000);
-    }
 
     private Mono<Integer> requestData(ExcelOperatorHolder excelOperatorHolder, TemplateTaskDO task, RpcRequest<ExcelTaskRequest> request) {
 
@@ -158,7 +148,9 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
 
     private String buildFileName(String batchNO) {
-        return batchNO + "-" + System.currentTimeMillis() + ".xlsx";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        String timestamp = formatter.format(LocalDateTime.now());
+        return batchNO + "-" + timestamp + ".xlsx";
     }
 
 

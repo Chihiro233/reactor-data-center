@@ -20,7 +20,7 @@ public class ExcelExportTaskTypeProcessor implements TaskTypeProcessor {
     public Object handle(MessageProtocol messageProtocol) {
         byte[] data = messageProtocol.getData();
         ExcelTaskRequest req = JSON.parseObject(data, ExcelTaskRequest.class);
-        BaseExcelExportHandler<?,?> exportHandler = (BaseExcelExportHandler<?,?>)excelHandlerFactory.getExportHandler(req.getTaskName());
+        BaseExcelExportHandler<?,?> exportHandler = excelHandlerFactory.getExportHandler(req.getTaskName());
         switch (req.getStage()) {
             case ExportExecuteStage._getHead -> {
                 return exportHandler.getExcelHeaders0(req.getBizInfo());

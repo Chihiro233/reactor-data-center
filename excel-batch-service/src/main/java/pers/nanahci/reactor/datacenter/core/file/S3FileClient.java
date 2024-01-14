@@ -85,12 +85,12 @@ public class S3FileClient extends AbstractFileClient {
                 .setFileType(type)
                 .setFileLength(fileSize)
                 .setPath(path);
-        try {
-            FileInputStream input = new FileInputStream(file);
+        try (FileInputStream input = new FileInputStream(file)) {
             return doPut(setting, input);
         } catch (Exception e) {
             throw new RuntimeException("上传文件异常");
         }
+
     }
 
     @Override

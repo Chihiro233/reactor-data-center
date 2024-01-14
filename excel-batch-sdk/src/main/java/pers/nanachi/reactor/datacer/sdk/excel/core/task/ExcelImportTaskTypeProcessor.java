@@ -17,7 +17,7 @@ public class ExcelImportTaskTypeProcessor implements TaskTypeProcessor {
     public Object handle(MessageProtocol messageProtocol) {
         byte[] data = messageProtocol.getData();
         ExcelTaskRequest request = JSON.parseObject(data, ExcelTaskRequest.class);
-        BaseExcelImportHandler<?> importHandler = (BaseExcelImportHandler<?>) excelHandlerFactory.getImportHandler(request.getTaskName());
+        BaseExcelImportHandler<?> importHandler = excelHandlerFactory.getImportHandler(request.getTaskName());
         importHandler.importExecute(request.getBizInfo());
         return null;
     }
