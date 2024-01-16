@@ -13,18 +13,28 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.netty.Connection;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+
 @Getter
 @Slf4j
 public class RConnection {
 
     private final int sinkId;
 
+    private final String remoteHost;
 
     private final Connection connection;
 
-    public RConnection(int sinkId, Connection connection) {
+    private final ConnectionManager.Recycle recycle;
+
+
+    public RConnection(int sinkId, Connection connection, ConnectionManager.Recycle recycle) {
         this.sinkId = sinkId;
         this.connection = connection;
+        InetSocketAddress socketAddress = (InetSocketAddress)connection.channel().remoteAddress();
+        this.remoteHost = socketAddress.getHostName();
+        this.recycle = recycle;
     }
 
     public void openInbound() {
@@ -47,9 +57,15 @@ public class RConnection {
                     return Mono.empty();
                 })
                 .doFinally(signalType -> {
-                    connection.dispose();
+                    if(!recycle()){
+                        connection.dispose();
+                    }
                 })
                 .subscribe();
+
+    }
+
+    private boolean recycle(){
 
     }
 
