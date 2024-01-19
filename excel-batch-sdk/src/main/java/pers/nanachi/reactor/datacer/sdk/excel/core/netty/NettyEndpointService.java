@@ -76,6 +76,7 @@ public class NettyEndpointService {
     }
 
     // test rebase 1
+    // test rebase 2
 
     @PreDestroy
     public void shutdown() throws InterruptedException {
