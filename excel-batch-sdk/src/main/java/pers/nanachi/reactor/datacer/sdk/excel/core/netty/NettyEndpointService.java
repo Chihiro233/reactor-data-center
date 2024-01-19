@@ -75,7 +75,6 @@ public class NettyEndpointService {
                 }).bind(9896);
     }
 
-    // test rebase 1
     // test rebase 2
 
     @PreDestroy
