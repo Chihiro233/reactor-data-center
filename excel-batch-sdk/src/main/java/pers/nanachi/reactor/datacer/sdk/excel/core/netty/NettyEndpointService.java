@@ -34,7 +34,7 @@ public class NettyEndpointService {
 
     private final DataChannelManager dataChannelManager;
 
-    private final DataProcessServiceHandler dataProcessServiceHandler;
+    private final MessageProtocolServiceHandler messageProtocolServiceHandler;
 
     private ChannelFuture serverInstance;
 
@@ -44,7 +44,7 @@ public class NettyEndpointService {
         this.eventLoopGroupSelector = buildEventLoopGroup();
         this.eventLoopGroupBoss = buildEventLoopBoss();
         this.dataChannelManager = new DataChannelManager();
-        this.dataProcessServiceHandler = new DataProcessServiceHandler(taskDispatcher);
+        this.messageProtocolServiceHandler = new MessageProtocolServiceHandler(taskDispatcher);
     }
 
 
@@ -62,15 +62,14 @@ public class NettyEndpointService {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
                         ch.pipeline()
+                                .addFirst(new IdleStateHandler(0, 0,
+                                        NettyCoreConfig.maxIdleTime),dataChannelManager)
                                 .addLast(EventExecutorPoll.DEFAULT_EVENT_EXECUTOR,
                                         new DataDecoder(NettyCoreConfig.maxFrameLength,
                                                 NettyCoreConfig.lengthFieldOffset, NettyCoreConfig.lengthFieldLength,
                                                 NettyCoreConfig.lengthAdjustment, NettyCoreConfig.initialBytesToStrip),
                                         new DataEncoder(),
-                                        dataChannelManager,
-                                        new IdleStateHandler(0, 0,
-                                                NettyCoreConfig.maxIdleTime),
-                                        dataProcessServiceHandler
+                                        messageProtocolServiceHandler
                                 );
                     }
                 }).bind(9896);

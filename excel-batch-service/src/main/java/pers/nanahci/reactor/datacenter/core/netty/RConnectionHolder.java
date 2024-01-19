@@ -14,13 +14,12 @@ import reactor.core.publisher.Sinks;
 import reactor.netty.Connection;
 
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
+import java.time.LocalDateTime;
 
 @Getter
 @Slf4j
-public class RConnection {
+public class RConnectionHolder {
 
-    private final int sinkId;
 
     private final String remoteHost;
 
@@ -28,38 +27,41 @@ public class RConnection {
 
     private final ConnectionManager.Recycle recycler;
 
+    private final LocalDateTime createTime;
 
-    public RConnection(int sinkId, Connection connection, ConnectionManager.Recycle recycler) {
-        this.sinkId = sinkId;
+
+    public RConnectionHolder(Connection connection, ConnectionManager.Recycle recycler) {
         this.connection = connection;
-        InetSocketAddress socketAddress = (InetSocketAddress)connection.channel().remoteAddress();
+        InetSocketAddress socketAddress = (InetSocketAddress) connection.channel().remoteAddress();
         this.remoteHost = socketAddress.getHostName();
         this.recycler = recycler;
+        this.createTime = LocalDateTime.now();
+
+        openInbound();
     }
 
-    public void openInbound() {
+    protected void openInbound() {
 
-        connection.onDispose(()->{
-            recycler.recycle(this);
+        connection.onDispose(() -> {
+            log.info("channel close");
         });
 
         connection.inbound()
                 .receiveObject()
-                .cast(MessageProtocol.class).take(1)
-                .doOnNext((value) -> {
-                    Sinks.One<RpcResponse<?>> inboundSink = EndPointSinkPoll.remove(sinkId);
+                .cast(MessageProtocol.class)
+                .doOnNext((protocol) -> {
+                    long msgId = protocol.getHeader().getMsgId();
+                    Sinks.One<RpcResponse<?>> inboundSink = RequestSinkPoll.remove(msgId);
                     if (inboundSink == null) {
                         return;
                     }
-                    RpcResponse<?> rpcResponse = JSON.parseObject(value.getData(), RpcResponse.class);
+                    RpcResponse<?> rpcResponse = JSON.parseObject(protocol.getData(), RpcResponse.class);
                     inboundSink.tryEmitValue(rpcResponse);
+                    // recycle
                 })
                 .onErrorResume(t -> {
                     log.error("error info", t);
                     return Mono.empty();
-                })
-                .doFinally(signalType -> {
-                    recycler.recycle(this);
                 })
                 .subscribe();
 
@@ -70,11 +72,17 @@ public class RConnection {
         return connection.isDisposed();
     }
 
-    public void handleRequest(RpcRequest<?> request) {
+    public void recycle() {
+        recycler.recycle(this);
+    }
+
+    public long handleRequest(RpcRequest<?> request) {
         MessageProtocol.MessageProtocolBuilder builder
                 = MessageProtocol.builder();
         MessageProtocol.ProtocolHeader header = new MessageProtocol.ProtocolHeader();
+        long requestId = RequestSinkPoll.alloc();
         header.setTaskType(request.getAttach().getTaskType());
+        header.setMsgId(requestId);
         builder.command(CommandType.Req);
         builder.data(SerializeFactory.serialize(SerializeEnum.FASTJSON2, request.getData()));
         builder.header(header);
@@ -83,6 +91,7 @@ public class RConnection {
                 .sendObject(builder.build())
                 .then()
                 .subscribe();
+        return requestId;
     }
 
 

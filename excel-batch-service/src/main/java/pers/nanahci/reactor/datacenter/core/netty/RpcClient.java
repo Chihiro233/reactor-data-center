@@ -1,25 +1,20 @@
 package pers.nanahci.reactor.datacenter.core.netty;
 
-import io.netty.channel.ChannelPipeline;
-import io.netty.handler.timeout.IdleStateHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalancer;
 import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.stereotype.Component;
-import pers.nanachi.reactor.datacer.sdk.excel.core.EventExecutorPoll;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.*;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataChannelManager;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
+import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcResponse;
 import pers.nanahci.reactor.datacenter.util.ThrowableUtil;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.netty.Connection;
-import reactor.netty.resources.LoopResources;
-import reactor.netty.tcp.TcpClient;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -33,8 +28,6 @@ public class RpcClient {
     private final DataChannelManager dataChannelManager = new DataChannelManager();
 
 
-
-
     public Mono<RpcResponse<?>> execute(RpcRequest<?> request) {
         ReactiveLoadBalancer<ServiceInstance> instance =
                 loadBalancerClientFactory.getInstance(request.getAttach().getServiceId());
@@ -44,10 +37,7 @@ public class RpcClient {
                     ServiceInstance serverInstance = server.getServer();
                     return ConnectionManager.get(serverInstance.getHost())
                             .retryWhen(Retry.backoff(request.getAttach().getRetryNum(), Duration.ofMillis(request.getAttach().getTimeout()))
-                            .filter(ThrowableUtil::isDisconnectedClientError))
-                            .doOnSuccess(connection -> {
-                                log.info("connect success!!!");
-                            })
+                                    .filter(ThrowableUtil::isDisconnectedClientError))
                             .doOnError(err -> {
                                 log.info("connect error:", err);
                             })
@@ -56,10 +46,10 @@ public class RpcClient {
                                     log.error("connect error");
                                     return Mono.empty();
                                 }
-                                connection.openInbound();
-                                connection.handleRequest(request);
-                                Sinks.One<RpcResponse<?>> sink = EndPointSinkPoll.get(connection.getSinkId());
-                                return sink.asMono();
+                                long requestId = connection.handleRequest(request);
+                                Sinks.One<RpcResponse<?>> sink = RequestSinkPoll.get(requestId);
+                                return sink.asMono()
+                                        .doOnNext(x->connection.recycle());
                             });
                 });
     }

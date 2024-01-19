@@ -27,7 +27,7 @@ public interface NettyCoreConfig {
 
     Integer selectorThreadsNum = 3;
 
-    Integer maxIdleTime = 3;
+    Integer maxIdleTime = 10;
 
 
 

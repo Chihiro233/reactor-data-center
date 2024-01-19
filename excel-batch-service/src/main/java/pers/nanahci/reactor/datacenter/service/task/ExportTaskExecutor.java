@@ -21,9 +21,7 @@ import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
+import reactor.core.publisher.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -73,13 +71,16 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     }
 
+    public static void main(String[] args) {
+    }
+
 
     private Mono<List<List<String>>> requestHead(RpcRequest<ExcelTaskRequest> request) {
         return Mono.fromRunnable(() -> request.getData().setStage(ExportExecuteStage._getHead))
                 .then(rpcClient.execute(request))
                 .handle((data, sink) -> {
                     if (!data.isSuccess()) {
-                        sink.error(new RuntimeException("request head fail"));
+                        sink.error(new RuntimeException("request head fail:"+data.getMsg()));
                         return;
                     }
                     TypeReference<List<List<String>>> ltr = new TypeReference<>() {

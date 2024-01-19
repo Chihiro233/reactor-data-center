@@ -25,21 +25,20 @@ public class ConnectionManager {
 
     public interface Recycle {
 
-        void recycle(RConnection connection);
+        void recycle(RConnectionHolder connection);
 
     }
 
     private static final Recycle NOOP_RECYCLE = new Recycle() {
         @Override
-        public void recycle(RConnection connection) {
+        public void recycle(RConnectionHolder connection) {
             // do nothing
-            return;
         }
     };
 
     private static final Recycle NORMAL_RECYCLE = new Recycle() {
         @Override
-        public void recycle(RConnection connection) {
+        public void recycle(RConnectionHolder connection) {
             if (connection.isDisposed()) {
                 return;
             }
@@ -48,42 +47,47 @@ public class ConnectionManager {
     };
 
 
-    public static Mono<RConnection> get(String host) {
+    public static Mono<RConnectionHolder> get(String host) {
         // 从池子拿
         return Mono.fromSupplier(() -> connectionPool.poll(host))
                 .switchIfEmpty(
                         Mono.defer(() -> TcpClient.create()
-                                .host(host)
-                                .port(9896)
-                                .runOn(LoopResources.create("rexcel-req-client"))
-                                .doOnChannelInit((connectionObserver, channel, remoteAddress) -> initPipeline(channel.pipeline()))
-                                .doOnConnected(ConnectionManager::initConnection)
-                                .wiretap(true)
-                                .connect()).map(connection -> new RConnection(EndPointSinkPoll.alloc(), connection,NORMAL_RECYCLE))
+                                        .host(host)
+                                        .port(9896)
+                                        .runOn(LoopResources.create("rexcel-req-client"))
+                                        .doOnChannelInit((connectionObserver, channel, remoteAddress) -> initPipeline(channel.pipeline()))
+                                        .doOnConnected(ConnectionManager::initConnection)
+                                        .wiretap(true)
+                                        .connect()).map(connection ->
+                                        new RConnectionHolder(connection, NORMAL_RECYCLE)
+
+                                )
+                                .doOnSuccess(connection -> {
+                                    log.info("connect success,channel id:[{}]", connection.getConnection().channel().id());
+                                })
                 );
 
 
     }
 
     private static void initPipeline(ChannelPipeline pipeline) {
+        pipeline.addFirst(new IdleStateHandler(0, 0,
+                NettyCoreConfig.maxIdleTime), dataChannelManager);
         pipeline.addLast(EventExecutorPoll.DEFAULT_EVENT_EXECUTOR,
                 new DataDecoder(NettyCoreConfig.maxFrameLength,
                         NettyCoreConfig.lengthFieldOffset, NettyCoreConfig.lengthFieldLength,
                         NettyCoreConfig.lengthAdjustment, NettyCoreConfig.initialBytesToStrip),
-                new DataEncoder(),
-                dataChannelManager,
-                new IdleStateHandler(0, 0,
-                        NettyCoreConfig.maxIdleTime));
+                new DataEncoder());
     }
 
     private static void initConnection(Connection conn) {
+        conn.addHandlerFirst(new IdleStateHandler(0, 0,
+                NettyCoreConfig.maxIdleTime));
+        conn.addHandlerLast(dataChannelManager);
         conn.addHandlerLast(new DataDecoder(NettyCoreConfig.maxFrameLength,
                 NettyCoreConfig.lengthFieldOffset, NettyCoreConfig.lengthFieldLength,
                 NettyCoreConfig.lengthAdjustment, NettyCoreConfig.initialBytesToStrip));
         conn.addHandlerLast(new DataEncoder());
-        conn.addHandlerLast(dataChannelManager);
-        conn.addHandlerLast(new IdleStateHandler(0, 0,
-                NettyCoreConfig.maxIdleTime));
     }
 
 

@@ -16,7 +16,7 @@ import pers.nanachi.reactor.datacer.sdk.excel.core.task.TaskDispatcher;
 @NoArgsConstructor
 @AllArgsConstructor
 @Slf4j
-public class DataProcessServiceHandler extends SimpleChannelInboundHandler<MessageProtocol> {
+public class MessageProtocolServiceHandler extends SimpleChannelInboundHandler<MessageProtocol> {
 
     private TaskDispatcher taskDispatcher;
 
@@ -48,7 +48,7 @@ public class DataProcessServiceHandler extends SimpleChannelInboundHandler<Messa
 
             MessageProtocol.ProtocolHeader respHeader = new MessageProtocol.ProtocolHeader();
             respHeader.setTaskType(header.getTaskType())
-                    .setMsgId(msg.getHeader().getMsgId() + 1);
+                    .setMsgId(msg.getHeader().getMsgId());
 
             retMsg = MessageProtocol.builder()
                     .command(CommandType.Resp)

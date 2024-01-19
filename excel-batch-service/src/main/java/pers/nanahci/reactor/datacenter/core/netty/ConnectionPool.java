@@ -2,8 +2,7 @@ package pers.nanahci.reactor.datacenter.core.netty;
 
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.groovy.util.concurrent.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
-import reactor.netty.Connection;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayDeque;
 import java.util.Map;
@@ -13,23 +12,23 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConnectionPool {
 
 
-    private static final Map<String, ArrayDeque<RConnection>> pool = new ConcurrentHashMap<>();
+    private static final Map<String, ArrayDeque<RConnectionHolder>> pool = new ConcurrentHashMap<>();
 
-    void add(RConnection conn) {
+    void add(RConnectionHolder conn) {
         pool.computeIfAbsent(conn.getRemoteHost(), key -> new ArrayDeque<>())
                 .add(conn);
     }
 
-    public RConnection poll(String host) {
-        RConnection conn;
-        ArrayDeque<RConnection> connes = pool.get(host);
+    public RConnectionHolder poll(String host) {
+        RConnectionHolder conn;
+        ArrayDeque<RConnectionHolder> connes = pool.get(host);
         do {
-            if (connes.isEmpty()) {
+            if (CollectionUtils.isEmpty(connes)) {
                 return null;
             }
             conn = connes.poll();
 
-        } while (conn.isDisposed());
+        } while (conn != null && conn.isDisposed());
 
         return conn;
     }
