@@ -26,21 +26,23 @@ public class RConnection {
 
     private final Connection connection;
 
-    private final ConnectionManager.Recycle recycle;
+    private final ConnectionManager.Recycle recycler;
 
 
-    public RConnection(int sinkId, Connection connection, ConnectionManager.Recycle recycle) {
+    public RConnection(int sinkId, Connection connection, ConnectionManager.Recycle recycler) {
         this.sinkId = sinkId;
         this.connection = connection;
         InetSocketAddress socketAddress = (InetSocketAddress)connection.channel().remoteAddress();
         this.remoteHost = socketAddress.getHostName();
-        this.recycle = recycle;
+        this.recycler = recycler;
     }
 
     public void openInbound() {
-        // test order
-        connection.onDispose()
-                .subscribe();
+
+        connection.onDispose(()->{
+            recycler.recycle(this);
+        });
+
         connection.inbound()
                 .receiveObject()
                 .cast(MessageProtocol.class).take(1)
@@ -57,17 +59,12 @@ public class RConnection {
                     return Mono.empty();
                 })
                 .doFinally(signalType -> {
-                    if(!recycle()){
-                        connection.dispose();
-                    }
+                    recycler.recycle(this);
                 })
                 .subscribe();
 
     }
 
-    private boolean recycle(){
-
-    }
 
     public boolean isDisposed() {
         return connection.isDisposed();

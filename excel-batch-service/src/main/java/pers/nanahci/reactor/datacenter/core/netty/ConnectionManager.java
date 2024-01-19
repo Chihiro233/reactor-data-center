@@ -29,7 +29,7 @@ public class ConnectionManager {
 
     }
 
-    private static Recycle NOOP_RECYCLE = new Recycle() {
+    private static final Recycle NOOP_RECYCLE = new Recycle() {
         @Override
         public void recycle(RConnection connection) {
             // do nothing
@@ -37,7 +37,7 @@ public class ConnectionManager {
         }
     };
 
-    private static Recycle NORMAL_RECYCLE = new Recycle() {
+    private static final Recycle NORMAL_RECYCLE = new Recycle() {
         @Override
         public void recycle(RConnection connection) {
             if (connection.isDisposed()) {
