@@ -75,6 +75,8 @@ public class NettyEndpointService {
                 }).bind(9896);
     }
 
+    // test rebase 1
+
     @PreDestroy
     public void shutdown() throws InterruptedException {
         this.eventLoopGroupBoss.shutdownGracefully().sync();
