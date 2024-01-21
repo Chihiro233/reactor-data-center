@@ -1,0 +1,15 @@
+
+server:
+  port: 9090
+
+rexcel:
+  batch:
+    role: provider
+
+dubbo:
+  application:
+    name: web-demo
+  config-center:
+    address: nacos://localhost:8848
+  registry:
+    address: nacos://localhost:8848
