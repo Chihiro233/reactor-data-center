@@ -11,7 +11,6 @@ import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
 import pers.nanachi.reactor.datacer.sdk.excel.param.ExcelTaskRequest;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
-import pers.nanahci.reactor.datacenter.core.reactor.ReactorExecutorConstant;
 import pers.nanahci.reactor.datacenter.core.reactor.SubscribeErrorHolder;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
@@ -22,7 +21,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 import java.util.Objects;
@@ -42,10 +40,8 @@ public class ImportTaskExecutor extends AbstractExecutor {
 
         TemplateDO templateDO = templateModel.getTemplateDO();
 
-        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.S3)
-                .doOnNext(rowData -> {
-                    log.info("当前数据:[{}]", JSON.toJSONString(rowData));
-                });
+        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.S3);
+
 
         Flux<Void> rpcFlux;
         Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().multicast().onBackpressureBuffer();
@@ -55,14 +51,16 @@ public class ImportTaskExecutor extends AbstractExecutor {
         errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()), task.getId());
         // 如果是批量的则拆分`
         final AtomicInteger ati = new AtomicInteger();
-        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateDO.getServerName(), TaskTypeRecord.IMPORT_TASK);
-        request.getData()
-                .setTaskName(templateDO.getName())
-                .setBizInfo(task.getBizInfo());
+
         if (isBatch(templateDO.getExecuteType())) {
             rpcFlux = excelFile.buffer(templateDO.getBatchSize())
                     .flatMap(rowDataList -> {
-                        request.getData().setBizInfo(JSON.toJSONString(rowDataList));
+                        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateDO.getServerName(), TaskTypeRecord.IMPORT_TASK);
+                        ExcelTaskRequest data = new ExcelTaskRequest();
+                        data.setTaskName(templateDO.getName())
+                                .setBizInfo(task.getBizInfo());
+                        data.setBizInfo(JSON.toJSONString(rowDataList));
+                        request.setData(data);
                         return rpcClient.execute(request)
                                 .doOnNext(response -> {
                                     if (!response.isSuccess()) {
@@ -83,13 +81,20 @@ public class ImportTaskExecutor extends AbstractExecutor {
                     });
 
         } else {
-            rpcFlux = excelFile.flatMap(rowData -> {
-                request.getData().setBizInfo(JSON.toJSONString(rowData));
+            rpcFlux = excelFile
+                    .concatMap(rowData -> {
+                RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateDO.getServerName(), TaskTypeRecord.IMPORT_TASK);
+                ExcelTaskRequest data = new ExcelTaskRequest();
+                data.setTaskName(templateDO.getName())
+                        .setBizInfo(task.getBizInfo());
+                data.setBizInfo(JSON.toJSONString(rowData));
+                request.setData(data);
                 return rpcClient.execute(request)
                         .handle((response, sink) -> {
                             if (!response.isSuccess()) {
                                 sink.error(new RuntimeException("request import error: " + response.getMsg()));
                             }
+                            log.info("处理结束，当前数据:{}",data.getBizInfo());
                         })
                         .onErrorContinue((err, rowData0) -> {
                             errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
@@ -99,9 +104,9 @@ public class ImportTaskExecutor extends AbstractExecutor {
             });
         }
         rpcFlux = rpcFlux.doFinally(signalType -> {
-            if(Objects.equals(signalType, SignalType.ON_ERROR)||Objects.equals(signalType,SignalType.CANCEL)){
+            if (Objects.equals(signalType, SignalType.ON_ERROR) || Objects.equals(signalType, SignalType.CANCEL)) {
                 errSink.tryEmitError(new RuntimeException("rpc flux error or canceled"));
-            }else{
+            } else {
                 errSink.tryEmitComplete();
             }
         });

@@ -2,15 +2,14 @@ package pers.nanahci.reactor.datacenter.core.reactor;
 
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
+import pers.nanachi.reactor.datacenter.common.util.SpringContextUtil;
 import pers.nanahci.reactor.datacenter.config.BatchTaskConfig;
 import pers.nanahci.reactor.datacenter.core.file.ExcelOperatorHolder;
 import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.service.task.TemplateService;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
-import pers.nanachi.reactor.datacenter.common.util.SpringContextUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
@@ -43,14 +42,16 @@ public class SubscribeErrorHolder {
                 }).then(Mono.defer(() -> {
                     if (Objects.nonNull(excelOperatorHolder)) {
                         excelOperatorHolder.finish();
-                        String errUrl = excelOperatorHolder.upload(FileStoreType.S3,true);
+                        String errUrl = excelOperatorHolder.upload(FileStoreType.S3, true);
                         log.info("errUrl:[{}]", errUrl);
                         TemplateService ts = SpringContextUtil.getBean(TemplateService.class);
                         return ts.saveErrFileUrl(taskId, errUrl);
                     }
                     return Mono.empty();
                 })).doFinally(signalType -> {
-                    excelOperatorHolder.finish().clear();
+                    if (excelOperatorHolder != null) {
+                        excelOperatorHolder.finish().clear();
+                    }
                 }).subscribe();
     }
 

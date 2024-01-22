@@ -36,5 +36,16 @@ public class RpcRequest<T> {
         return request;
     }
 
+    public RpcRequest<T> duplicate(){
+        RpcRequest<T> duplicate = new RpcRequest<>();
+        Attach duplicateAttach = new Attach();
+        duplicateAttach.setRetryNum(this.attach.retryNum);
+        duplicateAttach.setTimeout(this.attach.timeout);
+        duplicateAttach.setTaskType(this.attach.taskType);
+        duplicateAttach.setServiceId(this.attach.serviceId);
+        duplicate.setAttach(duplicateAttach);
+        return duplicate;
+    }
+
 
 }

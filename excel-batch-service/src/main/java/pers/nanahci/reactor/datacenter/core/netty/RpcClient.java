@@ -6,7 +6,6 @@ import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalancer;
 import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory;
 import org.springframework.stereotype.Component;
-import pers.nanachi.reactor.datacer.sdk.excel.core.netty.DataChannelManager;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcResponse;
 import pers.nanahci.reactor.datacenter.util.ThrowableUtil;
@@ -25,9 +24,6 @@ public class RpcClient {
     private LoadBalancerClientFactory loadBalancerClientFactory;
 
 
-    private final DataChannelManager dataChannelManager = new DataChannelManager();
-
-
     public Mono<RpcResponse<?>> execute(RpcRequest<?> request) {
         ReactiveLoadBalancer<ServiceInstance> instance =
                 loadBalancerClientFactory.getInstance(request.getAttach().getServiceId());
@@ -35,6 +31,9 @@ public class RpcClient {
         return Mono.from(instance.choose())
                 .flatMap(server -> {
                     ServiceInstance serverInstance = server.getServer();
+                    if (serverInstance == null) {
+                        return Mono.error(new RuntimeException("no serverInstance, serviceId: " + request.getAttach().getServiceId()));
+                    }
                     return ConnectionManager.get(serverInstance.getHost())
                             .retryWhen(Retry.backoff(request.getAttach().getRetryNum(), Duration.ofMillis(request.getAttach().getTimeout()))
                                     .filter(ThrowableUtil::isDisconnectedClientError))
@@ -49,7 +48,7 @@ public class RpcClient {
                                 long requestId = connection.handleRequest(request);
                                 Sinks.One<RpcResponse<?>> sink = RequestSinkPoll.get(requestId);
                                 return sink.asMono()
-                                        .doOnNext(x->connection.recycle());
+                                        .doOnNext(x -> connection.recycle());
                             });
                 });
     }

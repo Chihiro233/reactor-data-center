@@ -7,9 +7,10 @@
         <version>3.0.12</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>pers.nanachi.dubbo.demo</groupId>
-    <artifactId>demo-core</artifactId>
-    <name>demo-core</name>
+    <groupId>pers.nanachi.web.demo</groupId>
+    <artifactId>web-demo</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>web-demo</name>
     <url>http://maven.apache.org</url>
 
     <dependencyManagement>
@@ -32,15 +33,6 @@
             <version>2.0.41</version>
         </dependency>
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter</artifactId>
-            <version>4.0.4</version>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.nacos</groupId>
-            <artifactId>nacos-client</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.nanachi.reactory</groupId>
             <artifactId>excel-batch-sdk</artifactId>
             <version>0.0.1-SNAPSHOT</version>
@@ -48,17 +40,30 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
-            <version>4.0.4</version>
+            <version>4.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-spring-boot-starter</artifactId>
-            <version>3.2.7</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+            <version>4.0.4</version>
+        </dependency>
+
     </dependencies>
 
 </project>
