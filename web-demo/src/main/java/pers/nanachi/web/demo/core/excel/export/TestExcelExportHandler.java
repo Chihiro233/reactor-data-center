@@ -21,9 +21,9 @@ public class TestExcelExportHandler extends BaseExcelExportHandler<TestResp, Tes
     @Override
     public List<List<String>> getExcelHeaders(TestReq param) {
         List<String> names = new ArrayList<>();
-        names.add("姓名");
+        names.add("name");
         List<String> bazi = new ArrayList<>();
-        bazi.add("八字");
+        bazi.add("bazi");
 
 
         //---------------------------------------------
@@ -47,7 +47,7 @@ public class TestExcelExportHandler extends BaseExcelExportHandler<TestResp, Tes
             testResp.setBazi("yingyang" + (index));
             testRespList.add(testResp);
         }
-        log.info("当前页:[{}]", pageNo);
+        log.info("current page :[{}]", pageNo);
         return testRespList;
     }
 
