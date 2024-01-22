@@ -94,7 +94,6 @@ public class ImportTaskExecutor extends AbstractExecutor {
                             if (!response.isSuccess()) {
                                 sink.error(new RuntimeException("request import error: " + response.getMsg()));
                             }
-                            log.info("处理结束，当前数据:{}",data.getBizInfo());
                         })
                         .onErrorContinue((err, rowData0) -> {
                             errSink.emitNext(new Pair<>(rowData, err), Sinks.EmitFailureHandler.FAIL_FAST);
