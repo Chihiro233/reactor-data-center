@@ -45,8 +45,8 @@ public class RpcClient {
                                     log.error("connect error");
                                     return Mono.empty();
                                 }
-                                long requestId = connection.handleRequest(request);
-                                Sinks.One<RpcResponse<?>> sink = RequestSinkPoll.get(requestId);
+                                long msgId = connection.handleRequest(request);
+                                Sinks.One<RpcResponse<?>> sink = RequestSinkPoll.get(msgId);
                                 return sink.asMono()
                                         .doOnNext(x -> connection.recycle());
                             });

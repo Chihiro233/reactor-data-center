@@ -80,9 +80,9 @@ public class RConnectionHolder {
         MessageProtocol.MessageProtocolBuilder builder
                 = MessageProtocol.builder();
         MessageProtocol.ProtocolHeader header = new MessageProtocol.ProtocolHeader();
-        long requestId = RequestSinkPoll.alloc();
+        long msgId = RequestSinkPoll.alloc();
         header.setTaskType(request.getAttach().getTaskType());
-        header.setMsgId(requestId);
+        header.setMsgId(msgId);
         builder.command(CommandType.Req);
         builder.data(SerializeFactory.serialize(SerializeEnum.FASTJSON2, request.getData()));
         builder.header(header);
@@ -91,7 +91,7 @@ public class RConnectionHolder {
                 .sendObject(builder.build())
                 .then()
                 .subscribe();
-        return requestId;
+        return msgId;
     }
 
 

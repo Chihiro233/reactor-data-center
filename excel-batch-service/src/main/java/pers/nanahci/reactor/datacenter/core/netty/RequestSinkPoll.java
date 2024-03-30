@@ -12,7 +12,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class RequestSinkPoll {
 
 
-    // req Id -> req Sink
+    // msg Id -> msgId Sink
     private final static Map<Long, Sinks.One<RpcResponse<?>>> pendingSinksMap = new ConcurrentHashMap<>();
 
     public RequestSinkPoll() {
