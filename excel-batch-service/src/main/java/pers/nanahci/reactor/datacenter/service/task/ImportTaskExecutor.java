@@ -14,7 +14,9 @@ import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
 import pers.nanahci.reactor.datacenter.core.reactor.SubscribeErrorHolder;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
+import pers.nanahci.reactor.datacenter.domain.template.ImportTemplateModel;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
+import pers.nanahci.reactor.datacenter.domain.template.TemplateTaskModel;
 import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
 import reactor.core.publisher.Flux;
@@ -36,29 +38,28 @@ public class ImportTaskExecutor extends AbstractExecutor {
 
 
     @Override
-    public Mono<Integer> execute(TemplateTaskDO task, TemplateModel templateModel) {
+    public Mono<Integer> execute(TemplateTaskModel templateTaskModel) {
 
-        TemplateDO templateDO = templateModel.getTemplateDO();
+        ImportTemplateModel templateModel = (ImportTemplateModel)templateTaskModel.getTemplateModel();
 
-        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(task.getFileUrl(), FileStoreType.S3);
-
+        Flux<Map<String, Object>> excelFile = ExcelFileUtils.getExcelFile(templateTaskModel.getFileUrl(), FileStoreType.S3);
 
         Flux<Void> rpcFlux;
         Sinks.Many<Pair<Map<String, Object>, Throwable>> errSink = Sinks.many().multicast().onBackpressureBuffer();
         Flux<Pair<Map<String, Object>, Throwable>> errFlux = errSink.asFlux();
 
         SubscribeErrorHolder errorHolder = SubscribeErrorHolder.build();
-        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(task.getFileUrl()), task.getId());
+        errorHolder.subscribeError(errFlux, getErrorFileNameFromUrl(templateTaskModel.getFileUrl()), templateTaskModel.getId());
         // 如果是批量的则拆分`
         final AtomicInteger ati = new AtomicInteger();
 
-        if (isBatch(templateDO.getExecuteType())) {
-            rpcFlux = excelFile.buffer(templateDO.getBatchSize())
+        if (templateModel.isBatch()) {
+            rpcFlux = excelFile.buffer(templateModel.getBatchSize())
                     .flatMap(rowDataList -> {
-                        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateDO.getServerName(), TaskTypeRecord.IMPORT_TASK);
+                        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateModel.getServerName(), TaskTypeRecord.IMPORT_TASK);
                         ExcelTaskRequest data = new ExcelTaskRequest();
-                        data.setTaskName(templateDO.getName())
-                                .setBizInfo(task.getBizInfo());
+                        data.setTaskName(templateModel.getName())
+                                .setBizInfo(templateTaskModel.getBizInfo());
                         data.setBizInfo(JSON.toJSONString(rowDataList));
                         request.setData(data);
                         return rpcClient.execute(request)
@@ -83,10 +84,10 @@ public class ImportTaskExecutor extends AbstractExecutor {
         } else {
             rpcFlux = excelFile
                     .concatMap(rowData -> {
-                RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateDO.getServerName(), TaskTypeRecord.IMPORT_TASK);
+                RpcRequest<ExcelTaskRequest> request = RpcRequest.get(templateModel.getServerName(), TaskTypeRecord.IMPORT_TASK);
                 ExcelTaskRequest data = new ExcelTaskRequest();
-                data.setTaskName(templateDO.getName())
-                        .setBizInfo(task.getBizInfo());
+                data.setTaskName(templateModel.getName())
+                        .setBizInfo(templateTaskModel.getBizInfo());
                 data.setBizInfo(JSON.toJSONString(rowData));
                 request.setData(data);
                 return rpcClient.execute(request)

@@ -10,9 +10,12 @@ import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 import pers.nanahci.reactor.datacenter.core.common.ContentTypes;
+import pers.nanahci.reactor.datacenter.util.FileUtils;
 import pers.nanahci.reactor.datacenter.util.PathUtils;
+import reactor.core.publisher.Mono;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,8 @@ public class ExcelOperatorHolder {
 
     private List<List<String>> headList;
 
+    private String templateUrl;
+
     private volatile boolean initialize;
 
     public ExcelOperatorHolder(String tempPath, String fileName,
@@ -46,10 +51,35 @@ public class ExcelOperatorHolder {
         this.bucket = bucket;
     }
 
+    public ExcelOperatorHolder(String tempPath, String fileName,
+                               String bucketPath, String bucket,String templateUrl) {
+        this.tempPath = tempPath;
+        this.fileName = fileName;
+        this.path = bucketPath;
+        this.bucket = bucket;
+        this.templateUrl = templateUrl;
+    }
+
+    public ExcelOperatorHolder writeFillData(Map<?,?> fillData ) {
+        if (!initialize) {
+            initTemplate();
+        }
+        excelWriter.fill(fillData,writeSheet);
+        return this;
+    }
+
+    public ExcelOperatorHolder writeFillDataList(List<JSONObject> fillDataList) {
+        if (!initialize) {
+            initTemplate();
+        }
+        excelWriter.fill(fillDataList,writeSheet);
+        return this;
+    }
+
 
     public ExcelOperatorHolder writeError(List<Pair<Map<String, Object>, Throwable>> errData) {
         if (!initialize) {
-            init(buildHeadByRowData(errData.get(0).getKey()));
+            initHead(buildHeadByRowData(errData.get(0).getKey()));
         }
         excelWriter.write(() -> errData.stream().map(pair -> {
             Map<String, Object> rowData = pair.getKey();
@@ -71,7 +101,7 @@ public class ExcelOperatorHolder {
             TypeReference<LinkedHashMap<String,Object>> ltr = new TypeReference<>(LinkedHashMap.class,String.class,Object.class) {
             };
             LinkedHashMap<String, Object> exportData0 = jsonObject.to(ltr);
-            init(buildHeadByRowData(exportData0));
+            initHead(buildHeadByRowData(exportData0));
         }
         excelWriter.write(() -> exportData.stream().map(jsonObject -> {
             Collection<Object> values = new ArrayList<>();
@@ -118,13 +148,22 @@ public class ExcelOperatorHolder {
         return this;
     }
 
-    public synchronized void init(List<List<String>> head) {
+    public synchronized ExcelOperatorHolder initHead(List<List<String>> head) {
         excelWriterBuilder = EasyExcel.write(new File(tempPath + fileName))
                 .head(head);
         writeSheet = EasyExcel.writerSheet("失败结果").build();
         excelWriter = excelWriterBuilder.build();
         headList = head;
         initialize = true;
+        return this;
+    }
+
+    public synchronized ExcelOperatorHolder initTemplate() {
+        InputStream templateInputStream = FileUtils.getFileInputStream(templateUrl, FileStoreType.S3);
+        excelWriterBuilder = EasyExcel.write(new File(tempPath + fileName))
+                .withTemplate(templateInputStream);
+        initialize = true;
+        return this;
     }
 
     private List<List<String>> buildHeadByRowData(Map<String, Object> rowData) {

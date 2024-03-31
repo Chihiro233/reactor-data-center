@@ -32,6 +32,9 @@ public class ExcelExportTaskTypeProcessor implements TaskTypeProcessor {
             case ExportExecuteStage._getData -> {
                 return exportHandler.getExportData0(req.getPageNo(), req.getBizInfo());
             }
+            case ExportExecuteStage._getFillData -> {
+                return exportHandler.getExportFill0(req.getBizInfo());
+            }
         }
         throw new RuntimeException("illegal stage");
     }

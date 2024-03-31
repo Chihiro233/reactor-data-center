@@ -1,6 +1,7 @@
 package pers.nanahci.reactor.datacenter.util;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.EasyExcelFactory;
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
 import com.alibaba.excel.metadata.data.ReadCellData;
@@ -18,6 +19,13 @@ import java.util.Map;
 
 @Slf4j
 public class ExcelFileUtils {
+
+
+
+
+
+
+
 
     public static Flux<Map<String, Object>> getExcelFile(String fileUrl, FileStoreType type) {
 
@@ -61,9 +69,11 @@ public class ExcelFileUtils {
         return new ExcelOperatorHolder(tempPath, fileName, path, bucket);
     }
 
-    public static void generateExcelFile(){
-
+    public static ExcelOperatorHolder createOperatorHolder(String tempPath, String fileName,
+                                                           String path, String bucket,String templateUrl) {
+        return new ExcelOperatorHolder(tempPath, fileName, path, bucket,templateUrl);
     }
+
 
 
 }

@@ -44,6 +44,10 @@ public class TemplateDO {
     @Data
     public static class Config {
 
+        private String mode;
+
+        private String templateUrl;
+
         private String webHook;
 
         private String userId;

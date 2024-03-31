@@ -35,7 +35,10 @@ import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskInstanceDO;
 import pers.nanahci.reactor.datacenter.dal.repo.TemplateRepository;
 import pers.nanahci.reactor.datacenter.dal.repo.TemplateTaskInstanceRepository;
 import pers.nanahci.reactor.datacenter.dal.repo.TemplateTaskRepository;
+import pers.nanahci.reactor.datacenter.domain.template.ExportTemplateModel;
+import pers.nanahci.reactor.datacenter.domain.template.ImportTemplateModel;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
+import pers.nanahci.reactor.datacenter.domain.template.TemplateTaskModel;
 import pers.nanahci.reactor.datacenter.intergration.webhook.AbstractWebHookHandler;
 import pers.nanahci.reactor.datacenter.intergration.webhook.WebHookFactory;
 import pers.nanahci.reactor.datacenter.intergration.webhook.enums.PlatformTypeEnum;
@@ -395,10 +398,10 @@ public class TemplateServiceImpl implements TemplateService {
 
         switch (templateModel.getTaskType()) {
             case TaskTypeRecord.IMPORT_TASK -> {
-                return importTaskExecutor.execute(task, templateModel);
+                return importTaskExecutor.execute(new TemplateTaskModel(task,new ImportTemplateModel(templateModel)));
             }
             case TaskTypeRecord.EXPORT_TASK -> {
-                return exportTaskExecutor.execute(task, templateModel);
+                return exportTaskExecutor.execute(new TemplateTaskModel(task,new ExportTemplateModel(templateModel)));
             }
         }
         return Mono.error(new RuntimeException("task type isn't exist"));

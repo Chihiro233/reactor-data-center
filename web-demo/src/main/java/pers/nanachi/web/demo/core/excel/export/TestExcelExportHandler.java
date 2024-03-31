@@ -8,6 +8,7 @@ import pers.nanachi.reactor.datacer.sdk.excel.annotation.ExcelExport;
 import pers.nanachi.reactor.datacer.sdk.excel.core.BaseExcelExportHandler;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +50,12 @@ public class TestExcelExportHandler extends BaseExcelExportHandler<TestResp, Tes
         }
         log.info("current page :[{}]", pageNo);
         return testRespList;
+    }
+
+
+    @Override
+    public Map<String, Object> getExportFill(TestReq param) {
+        return Collections.emptyMap();
     }
 
     @Override

@@ -64,13 +64,19 @@ public class S3FileClient extends AbstractFileClient {
 
     @Override
     public InputStream getInputStream(String url) {
-        EasyURL urlObj = EasyURL.from(url);
-        AccessSetting setting = new AccessSetting();
+        try{
+            EasyURL urlObj = EasyURL.from(url);
+            AccessSetting setting = new AccessSetting();
 
-        setting.setBucket(config.getBucket())
-                .setPath(urlObj.getPath());
+            setting.setBucket(config.getBucket())
+                    .setPath(urlObj.getPath());
 
-        return doGet(setting);
+            return doGet(setting);
+        }catch (Exception e){
+            log.error("get file error, url:{}",url,e);
+            throw e;
+        }
+
     }
 
     @Override

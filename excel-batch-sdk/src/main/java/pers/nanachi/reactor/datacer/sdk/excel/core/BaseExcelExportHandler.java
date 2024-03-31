@@ -34,11 +34,18 @@ public abstract class BaseExcelExportHandler<R, T> implements ExcelExportHandler
 
     public abstract List<R> getExportData(Integer pageNo, T param);
 
+    public abstract Map<String,Object> getExportFill(T param);
+
     public abstract Map<String, String> templateFill(T param);
 
     public final List<R> getExportData0(Integer pageNo, String param) {
         T paramT = JSON.parseObject(param, T_);
         return getExportData(pageNo, paramT);
+    }
+
+    public final Map<String,Object> getExportFill0(String param) {
+        T paramT = JSON.parseObject(param, T_);
+        return getExportFill(paramT);
     }
 
     public final List<List<String>> getExcelHeaders0(String param) {

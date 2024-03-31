@@ -1,5 +1,6 @@
 package pers.nanahci.reactor.datacenter.service.task;
 
+import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -9,6 +10,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.BindException;
 import pers.nanachi.reactor.datacenter.common.task.constant.TaskTypeRecord;
 import pers.nanachi.reactor.datacer.sdk.excel.core.ExportExecuteStage;
 import pers.nanachi.reactor.datacer.sdk.excel.core.netty.RpcRequest;
@@ -19,15 +21,21 @@ import pers.nanahci.reactor.datacenter.core.file.FileStoreType;
 import pers.nanahci.reactor.datacenter.core.netty.RpcClient;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
+import pers.nanahci.reactor.datacenter.domain.template.ExportTemplateModel;
 import pers.nanahci.reactor.datacenter.domain.template.TemplateModel;
+import pers.nanahci.reactor.datacenter.domain.template.TemplateTaskModel;
+import pers.nanahci.reactor.datacenter.service.task.constant.ExportTypeEnum;
 import pers.nanahci.reactor.datacenter.util.ExcelFileUtils;
+import pers.nanahci.reactor.datacenter.util.FileUtils;
 import reactor.core.publisher.*;
 
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -41,46 +49,103 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     private final BatchTaskConfig batchTaskConfig;
 
-    public Mono<Integer> execute(TemplateTaskDO task, TemplateModel templateModel) {
+    public Mono<Integer> execute(TemplateTaskModel templateTaskModel) {
 
-        TemplateDO template = templateModel.getTemplateDO();
-        String bizInfo = task.getBizInfo();
-        String serverName = template.getServerName();
+        ExportTemplateModel templateModel = (ExportTemplateModel) templateTaskModel.getTemplateModel();
+
+        switch (templateModel.getExportTypeEnum()) {
+            case NORMAL -> {
+                return executeNormal(templateTaskModel);
+            }
+            case TEMPLATE -> {
+                return executeTemplate(templateTaskModel);
+            }
+        }
+
+        throw new IllegalArgumentException("illegal export type");
+    }
+
+
+    private Mono<Integer> executeTemplate(TemplateTaskModel templateTaskModel) {
+        ExportTemplateModel templateModel = (ExportTemplateModel) templateTaskModel.getTemplateModel();
+        String bizInfo = templateTaskModel.getBizInfo();
+        String serverName = templateModel.getServerName();
+        String templateUrl = templateModel.getTemplateUrl();
+
         ExcelTaskRequest excelTaskRequest = new ExcelTaskRequest();
 
-        excelTaskRequest.setTaskName(template.getName())
+
+        excelTaskRequest.setTaskName(templateModel.getName())
                 .setBizInfo(bizInfo)
-                .setPageNo(1)
-                .setBatchNo(task.getBatchNo());
+                .setBatchNo(templateTaskModel.getBatchNo());
 
         RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, TaskTypeRecord.EXPORT_TASK);
         request.getAttach().setTimeout(200);
         request.getAttach().setRetryNum(3);
         request.setData(excelTaskRequest);
+        // 下载模板
+        return Mono.fromSupplier(() -> ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
+                                buildFileName(templateTaskModel.getBatchNo() + "-" + templateTaskModel.getId()),
+                                batchTaskConfig.getPath(), batchTaskConfig.getBucket(), templateUrl)
+                        .initTemplate())
+                .flatMap(operatorHolder -> requestFill(request)
+                        .doOnNext(operatorHolder::writeFillData)
+                        .then(requestAndWriteData(operatorHolder, templateTaskModel, request)));
 
+    }
+
+
+    private Mono<Integer> executeNormal(TemplateTaskModel templateTaskModel) {
+        ExportTemplateModel templateModel = (ExportTemplateModel) templateTaskModel.getTemplateModel();
+        String bizInfo = templateTaskModel.getBizInfo();
+        String serverName = templateModel.getServerName();
+        ExcelTaskRequest excelTaskRequest = new ExcelTaskRequest();
+
+
+        excelTaskRequest.setTaskName(templateModel.getName())
+                .setBizInfo(bizInfo)
+                .setPageNo(1)
+                .setBatchNo(templateTaskModel.getBatchNo());
+
+        RpcRequest<ExcelTaskRequest> request = RpcRequest.get(serverName, TaskTypeRecord.EXPORT_TASK);
+        request.getAttach().setTimeout(200);
+        request.getAttach().setRetryNum(3);
+        request.setData(excelTaskRequest);
         // 2. execute
         return requestHead(request)
                 .map(headData -> {
-                    // create ExcelOperatorHolder obj
                     ExcelOperatorHolder operatorHolder = ExcelFileUtils.createOperatorHolder(batchTaskConfig.getTempPath(),
-                            buildFileName(task.getBatchNo() + "-" + task.getId()), batchTaskConfig.getPath(), batchTaskConfig.getBucket());
-                    operatorHolder.init(headData);
+                            buildFileName(templateTaskModel.getBatchNo() + "-" + templateTaskModel.getId()), batchTaskConfig.getPath(), batchTaskConfig.getBucket());
+                    operatorHolder.initHead(headData);
                     return operatorHolder;
                 })
-                .flatMap(operator -> requestData(operator, task, request));
-
+                .flatMap(operator -> requestAndWriteData(operator, templateTaskModel, request));
     }
 
-    public static void main(String[] args) {
-    }
+    private Mono<Map<?, ?>> requestFill(RpcRequest<ExcelTaskRequest> request) {
+        return Mono.fromRunnable(() -> request.getData().setStage(ExportExecuteStage._getFillData))
+                .then(rpcClient.execute(request))
+                .handle((data, sink) -> {
+                    if (!data.isSuccess()) {
+                        sink.error(new RuntimeException("request fill fail:" + data.getMsg()));
+                        return;
+                    }
+                    if (data.getData() instanceof Map<?, ?> fillMap) {
+                        //operatorHolder.writeFillData(fillMap);
+                        sink.next(fillMap);
+                    } else {
+                        sink.error(new RuntimeException("data format isn't map"));
+                    }
+                });
 
+    }
 
     private Mono<List<List<String>>> requestHead(RpcRequest<ExcelTaskRequest> request) {
         return Mono.fromRunnable(() -> request.getData().setStage(ExportExecuteStage._getHead))
                 .then(rpcClient.execute(request))
                 .handle((data, sink) -> {
                     if (!data.isSuccess()) {
-                        sink.error(new RuntimeException("request head fail:"+data.getMsg()));
+                        sink.error(new RuntimeException("request head fail:" + data.getMsg()));
                         return;
                     }
                     TypeReference<List<List<String>>> ltr = new TypeReference<>() {
@@ -95,7 +160,7 @@ public class ExportTaskExecutor extends AbstractExecutor {
     }
 
 
-    private Mono<Integer> requestData(ExcelOperatorHolder excelOperatorHolder, TemplateTaskDO task, RpcRequest<ExcelTaskRequest> request) {
+    private Mono<Integer> requestAndWriteData(ExcelOperatorHolder excelOperatorHolder, TemplateTaskModel task, RpcRequest<ExcelTaskRequest> request) {
 
         return Mono.fromRunnable(() -> request.getData().setStage(ExportExecuteStage._getData))
                 .then(
@@ -109,10 +174,10 @@ public class ExportTaskExecutor extends AbstractExecutor {
                                         return dynamicCall(excelOperatorHolder, task, request);
                                     }
                                 }).doFinally(signalType -> {
-                                    log.info("task publisher signal:[{}]",signalType);
+                                    log.info("task publisher signal:[{}]", signalType);
                                     if (signalType.compareTo(SignalType.ON_ERROR) == 0 || signalType.compareTo(SignalType.CANCEL) == 0) {
                                         excelOperatorHolder.finish().clear();
-                                    }else{
+                                    } else {
                                         excelOperatorHolder.finish().upload(FileStoreType.S3, true);
                                     }
                                 }).then(Mono.fromSupplier(() -> {
@@ -123,7 +188,9 @@ public class ExportTaskExecutor extends AbstractExecutor {
 
     }
 
-    private Mono<List<?>> dynamicCall(ExcelOperatorHolder excelOperatorHolder, TemplateTaskDO task, RpcRequest<?> request) {
+    private Mono<List<?>> dynamicCall(ExcelOperatorHolder excelOperatorHolder, TemplateTaskModel task, RpcRequest<?> request) {
+        ExportTemplateModel templateModel = (ExportTemplateModel) task.getTemplateModel();
+        ExportTypeEnum exportTypeEnum = templateModel.getExportTypeEnum();
         // 假如参数
         return rpcClient.execute(request)
                 .handle((response, sink) -> {
@@ -138,7 +205,12 @@ public class ExportTaskExecutor extends AbstractExecutor {
                         } else {
                             throw new RuntimeException("request data isn't array");
                         }
-                        excelOperatorHolder.writeExportData(realData);
+                        if (Objects.equals(exportTypeEnum, ExportTypeEnum.TEMPLATE)) {
+                            excelOperatorHolder.writeFillDataList(realData);
+                        } else {
+                            excelOperatorHolder.writeExportData(realData);
+
+                        }
                         sink.next(realData);
                     } catch (Throwable e) {
                         log.error("request export data error", e);

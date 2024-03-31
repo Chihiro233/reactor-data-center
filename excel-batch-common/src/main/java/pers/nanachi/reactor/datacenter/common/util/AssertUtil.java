@@ -1,5 +1,6 @@
 package pers.nanachi.reactor.datacenter.common.util;
 
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class AssertUtil {
