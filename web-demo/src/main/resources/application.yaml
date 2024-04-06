@@ -30,5 +30,6 @@ spring:
 rexcel:
   batch:
     role: provider
+    port: 9998
 
 

@@ -7,10 +7,7 @@ import org.springframework.stereotype.Component;
 import pers.nanachi.reactor.datacer.sdk.excel.annotation.ExcelExport;
 import pers.nanachi.reactor.datacer.sdk.excel.core.BaseExcelExportHandler;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @ExcelExport("testExcelTask")
 @Component
@@ -42,10 +39,11 @@ public class TestExcelExportHandler extends BaseExcelExportHandler<TestResp, Tes
         if (pageNo > 1000) {
             return testRespList;
         }
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 100; i++) {
             TestResp testResp = new TestResp();
-            testResp.setName("nanachi233: " + (index++));
-            testResp.setBazi("yingyang" + (index));
+            testResp.setYuwen("yu-wen: " + (index++));
+            testResp.setEnglish("english:" + (index));
+            testResp.setMath("数学:"+(index));
             testRespList.add(testResp);
         }
         log.info("current page :[{}]", pageNo);
@@ -60,7 +58,11 @@ public class TestExcelExportHandler extends BaseExcelExportHandler<TestResp, Tes
 
     @Override
     public Map<String, String> templateFill(TestReq param) {
-        return null;
+        Map<String,String> resMap = new HashMap<>();
+        resMap.put("name","俞鸿泰");
+        resMap.put("birthDay","2024-04-04");
+        resMap.put("sign","兄弟你好香");
+        return resMap;
     }
 
 

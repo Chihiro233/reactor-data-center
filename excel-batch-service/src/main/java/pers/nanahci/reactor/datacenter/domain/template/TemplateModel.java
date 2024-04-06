@@ -1,17 +1,16 @@
 package pers.nanahci.reactor.datacenter.domain.template;
 
 import com.alibaba.fastjson2.JSON;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import pers.nanachi.reactor.datacenter.common.util.AssertUtil;
-import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
-import pers.nanahci.reactor.datacenter.service.task.constant.ExportTypeEnum;
-import pers.nanahci.reactor.datacenter.service.task.constant.FailStrategy;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateDO;
 import pers.nanahci.reactor.datacenter.dal.entity.TemplateTaskDO;
+import pers.nanahci.reactor.datacenter.service.task.constant.ExecuteTypeEnum;
+import pers.nanahci.reactor.datacenter.service.task.constant.FailStrategy;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +18,7 @@ import java.util.Objects;
 @Slf4j
 @Getter
 @Builder
+@AllArgsConstructor
 public class TemplateModel {
 
 
@@ -47,6 +47,8 @@ public class TemplateModel {
         this.taskList = templateModel.getTaskList();
         this.config = templateModel.getConfig();
     }
+
+
 
     public boolean whetherRetry() {
         if (templateDO == null) {
@@ -94,4 +96,7 @@ public class TemplateModel {
     public String getName() {
         return templateDO.getName();
     }
+
+
+
 }

@@ -116,6 +116,7 @@ public class TemplateServiceImpl implements TemplateService {
                             .publishOn(Schedulers.boundedElastic())
                             .map(template ->
                                     TemplateModel.builder().templateDO(template)
+                                            .config(JSON.parseObject(template.getConfig(), TemplateDO.Config.class))
                                             .taskList(group.collectList().block())
                                             .build());
 
@@ -196,10 +197,10 @@ public class TemplateServiceImpl implements TemplateService {
         flux.subscribe(x -> {
             System.out.println(x);
         });
-        share.subscribe(x->{
-            System.out.println("share-"+x);
+        share.subscribe(x -> {
+            System.out.println("share-" + x);
         });
-        for(int i=0;i<10;i++){
+        for (int i = 0; i < 10; i++) {
             sinkOne.tryEmitNext(i);
         }
         Thread.sleep(5000);
@@ -398,10 +399,10 @@ public class TemplateServiceImpl implements TemplateService {
 
         switch (templateModel.getTaskType()) {
             case TaskTypeRecord.IMPORT_TASK -> {
-                return importTaskExecutor.execute(new TemplateTaskModel(task,new ImportTemplateModel(templateModel)));
+                return importTaskExecutor.execute(new TemplateTaskModel(task, new ImportTemplateModel(templateModel)));
             }
             case TaskTypeRecord.EXPORT_TASK -> {
-                return exportTaskExecutor.execute(new TemplateTaskModel(task,new ExportTemplateModel(templateModel)));
+                return exportTaskExecutor.execute(new TemplateTaskModel(task, new ExportTemplateModel(templateModel)));
             }
         }
         return Mono.error(new RuntimeException("task type isn't exist"));

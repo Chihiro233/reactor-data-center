@@ -1,5 +1,6 @@
 package pers.nanahci.reactor.datacenter.domain.template;
 
+import com.alibaba.excel.util.StringUtils;
 import lombok.Getter;
 import pers.nanahci.reactor.datacenter.service.task.constant.ExportTypeEnum;
 
@@ -8,12 +9,16 @@ import pers.nanahci.reactor.datacenter.service.task.constant.ExportTypeEnum;
 public class ExportTemplateModel extends TemplateModel{
 
 
-    private ExportTypeEnum exportTypeEnum;
+    private final ExportTypeEnum exportTypeEnum;
 
     public ExportTemplateModel(TemplateModel templateModel) {
         super(templateModel);
         String mode = this.config.getMode();
-        this.exportTypeEnum = ExportTypeEnum.valueOf(mode);
+        if(StringUtils.isBlank(mode)){
+            this.exportTypeEnum = ExportTypeEnum.NONE;
+            return;
+        }
+        this.exportTypeEnum = ExportTypeEnum.of(mode);
 
     }
 
